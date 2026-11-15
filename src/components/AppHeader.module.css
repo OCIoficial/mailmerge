@@ -63,3 +63,30 @@
   outline: 2px solid var(--mantine-primary-color-filled);
   outline-offset: 2px;
 }
+
+.viewControl {
+  /* Mismo ancho para ambos segmentos, calculado para que quepa "Review" con su contador. */
+  width: 104px;
+  flex: none;
+}
+
+.viewLabel {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+/* Contador de correos con problemas, en línea con el texto. */
+.viewCounter {
+  min-width: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--mantine-color-orange-light);
+  color: var(--mantine-color-orange-light-color);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}

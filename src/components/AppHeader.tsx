@@ -12,7 +12,6 @@ import {
 } from '@mantine/core'
 import type { ReactNode } from 'react'
 import { useAuth } from '../google/AuthContext.tsx'
-import { WarningIcon } from './Notice.tsx'
 import classes from './AppHeader.module.css'
 
 const iconProps = {
@@ -102,8 +101,10 @@ export function AppHeader({ view, onViewChange, problemCount }: Props) {
         <span className={classes.title}>Mail Merge</span>
       </div>
 
+      {/* Segmentos de igual ancho; el conteo va en línea (como el Counter de GitHub), sin cambiar el ancho. */}
       <SegmentedControl
         aria-label="View"
+        classNames={{ control: classes.viewControl }}
         value={view}
         onChange={(value) => onViewChange(value as View)}
         data={[
@@ -111,22 +112,14 @@ export function AppHeader({ view, onViewChange, problemCount }: Props) {
           {
             value: 'review',
             label: (
-              <Group gap={6} wrap="nowrap" justify="center">
+              <span className={classes.viewLabel}>
                 Review
                 {problemCount > 0 && (
-                  <Text
-                    span
-                    c="orange"
-                    fz={12}
-                    fw={600}
-                    title={`${problemCount} emails need fixing`}
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}
-                  >
-                    <WarningIcon size={13} />
+                  <span className={classes.viewCounter} title={`${problemCount} emails need fixing`}>
                     {problemCount}
-                  </Text>
+                  </span>
                 )}
-              </Group>
+              </span>
             ),
           },
         ]}

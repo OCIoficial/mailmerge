@@ -36,7 +36,7 @@ export function DataTable({ dataset, normalization, showOriginal, onColumnStepsC
   const toggleAll = () => onExcludedChange(includedCount === rows.length ? new Set(rows.map((_, i) => i)) : new Set())
   return (
     <Table.ScrollContainer minWidth={dataset.columns.length * 140} maxHeight={360} type="native">
-      <Table stickyHeader striped withTableBorder withColumnBorders fz="xs" verticalSpacing={4}>
+      <Table stickyHeader striped highlightOnHover withTableBorder withColumnBorders fz="xs" verticalSpacing={4}>
         <Table.Thead>
           <Table.Tr>
             <Table.Th w={32}>

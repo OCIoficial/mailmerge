@@ -1,4 +1,4 @@
-import { Anchor, Checkbox, Group, Stack, Switch, Text } from '@mantine/core'
+import { Checkbox, Group, Stack, Switch, Text } from '@mantine/core'
 import { useState } from 'react'
 import type { GlobalNormalization, Normalization, NormalizedDataset, Step } from '../merge/normalize.ts'
 import { DataTable } from './DataTable.tsx'
@@ -44,17 +44,9 @@ export function NormalizedData({ dataset, normalization, onChange, excluded, onE
 
       <Group justify="space-between">
         <Text size="sm" c="dimmed">
-          {excluded.size > 0 ? (
-            <>
-              {dataset.rows.length - excluded.size} of {dataset.rows.length} rows included (
-              <Anchor component="button" type="button" fz="inherit" onClick={() => onExcludedChange(new Set())}>
-                Include all
-              </Anchor>
-              )
-            </>
-          ) : (
-            `${dataset.rows.length} rows`
-          )}
+          {excluded.size > 0
+            ? `${dataset.rows.length - excluded.size} of ${dataset.rows.length} rows included`
+            : `${dataset.rows.length} rows`}
           , {dataset.columns.length} columns, {dataset.changedCells} cells changed
         </Text>
         <Switch
