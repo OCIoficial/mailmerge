@@ -6,21 +6,21 @@ import {
   SegmentedControl,
   SimpleGrid,
   Stack,
+  Switch,
   Text,
-  Textarea,
   TextInput,
   Title,
 } from '@mantine/core'
 import { Link, RichTextEditor } from '@mantine/tiptap'
 import { useEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
+import { useLocalStorage } from '@mantine/hooks'
 import { useRef, useState } from 'react'
 import type { Column } from '../merge/dataset.ts'
+import { MarkdownEditor, type MarkdownEditorHandle } from './MarkdownEditor.tsx'
 import { FIELD_LABELS, type BodyFormat, type EmailTemplate, type TemplateField } from '../merge/template.ts'
 
 type TextField = Exclude<TemplateField, 'body'>
-/** Campos de texto plano donde se insertan variables en la posición del cursor. */
-type PlainField = TextField | 'markdown'
 
 const TEXT_FIELDS: { field: TextField; placeholder: string }[] = [
   { field: 'to', placeholder: '{{ email }}' },
@@ -41,7 +41,10 @@ interface Props {
 }
 
 export function TemplateEditor({ template, columns, onChange }: Props) {
-  const inputs = useRef<Partial<Record<PlainField, HTMLInputElement | HTMLTextAreaElement | null>>>({})
+  const inputs = useRef<Partial<Record<TextField, HTMLInputElement | null>>>({})
+  const markdownEditor = useRef<MarkdownEditorHandle>(null)
+  // Preferencia personal, no del template: se guarda aparte.
+  const [vim, setVim] = useLocalStorage({ key: 'mail-merge:vim', defaultValue: false, getInitialValueInEffect: false })
   const [target, setTarget] = useState<TemplateField>('body')
 
   const editor = useEditor({
@@ -53,11 +56,12 @@ export function TemplateEditor({ template, columns, onChange }: Props) {
 
   function insertVariable(key: string) {
     const snippet = `{{ ${key} }}`
-    if (target === 'body' && template.format === 'richtext') {
-      editor?.chain().focus().insertContent(snippet).run()
+    if (target === 'body') {
+      if (template.format === 'richtext') editor?.chain().focus().insertContent(snippet).run()
+      else markdownEditor.current?.insert(snippet)
       return
     }
-    const field: PlainField = target === 'body' ? 'markdown' : target
+    const field = target
     const input = inputs.current[field]
     const value = template[field]
     const start = input?.selectionStart ?? value.length
@@ -116,32 +120,19 @@ export function TemplateEditor({ template, columns, onChange }: Props) {
         {textInput('subject')}
 
         <Stack gap={4}>
-          <Group justify="space-between">
-            <Text size="sm" fw={500}>
-              {FIELD_LABELS.body}
-            </Text>
-            <SegmentedControl
-              size="xs"
-              aria-label="Body format"
-              data={FORMATS}
-              value={template.format}
-              onChange={(value) => onChange({ format: value as BodyFormat })}
-            />
-          </Group>
+          <Text size="sm" fw={500}>
+            {FIELD_LABELS.body}
+          </Text>
 
           {template.format === 'markdown' ? (
-            <Textarea
+            <MarkdownEditor
+              ref={markdownEditor}
               aria-label={FIELD_LABELS.body}
               placeholder={'Hi {{ name }},\n\nYour **balance** is {{ amount }}.'}
-              autosize
-              minRows={10}
-              ff="monospace"
               value={template.markdown}
-              ref={(element) => {
-                inputs.current.markdown = element
-              }}
+              vim={vim}
               onFocus={() => setTarget('body')}
-              onChange={(event) => onChange({ markdown: event.currentTarget.value })}
+              onChange={(markdown) => onChange({ markdown })}
             />
           ) : (
             <RichTextEditor editor={editor}>
@@ -172,6 +163,25 @@ export function TemplateEditor({ template, columns, onChange }: Props) {
               <RichTextEditor.Content mih={240} />
             </RichTextEditor>
           )}
+          {/* Barra inferior del editor, como en GitLab: formato a la izquierda, Vim a la derecha. */}
+          <Group justify="space-between" gap="xs">
+            <SegmentedControl
+              size="xs"
+              aria-label="Body format"
+              data={FORMATS}
+              value={template.format}
+              onChange={(value) => onChange({ format: value as BodyFormat })}
+              title="Each format keeps its own text; switching doesn't convert it."
+            />
+            {template.format === 'markdown' && (
+              <Switch
+                size="xs"
+                label="Vim"
+                checked={vim}
+                onChange={(event) => setVim(event.currentTarget.checked)}
+              />
+            )}
+          </Group>
         </Stack>
 
         <Text size="xs" c="dimmed">
