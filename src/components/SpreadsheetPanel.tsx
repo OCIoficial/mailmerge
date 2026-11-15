@@ -1,0 +1,121 @@
+import { Alert, Button, Card, Checkbox, Group, Select, Stack, Text, Title } from '@mantine/core'
+import { useLocalStorage } from '@mantine/hooks'
+import { useState } from 'react'
+import { getSheetValues, getSpreadsheet, type SpreadsheetInfo } from '../google/api.ts'
+import { useAuth } from '../google/AuthContext.tsx'
+import { pickSpreadsheet } from '../google/picker.ts'
+import { toDataset, type Dataset } from '../merge/dataset.ts'
+import { DataTable } from './DataTable.tsx'
+
+interface Props {
+  dataset: Dataset | null
+  onChange: (dataset: Dataset | null) => void
+}
+
+export function SpreadsheetPanel({ dataset, onChange }: Props) {
+  const auth = useAuth()
+  const [spreadsheet, setSpreadsheet] = useState<SpreadsheetInfo | null>(null)
+  const [sheet, setSheet] = useState<string | null>(null)
+  // Valores crudos de la hoja, para rearmar las filas al cambiar el checkbox sin volver a pedirlos.
+  const [values, setValues] = useState<string[][] | null>(null)
+  const [hasHeader, setHasHeader] = useLocalStorage({
+    key: 'mail-merge:has-header',
+    defaultValue: false,
+    getInitialValueInEffect: false,
+  })
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function withLoading(task: () => Promise<void>) {
+    setLoading(true)
+    setError(null)
+    try {
+      await task()
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function loadSheet(info: SpreadsheetInfo, name: string) {
+    const next = await auth.run((token) => getSheetValues(token, info.id, name))
+    setSheet(name)
+    setValues(next)
+    onChange(toDataset(next, hasHeader))
+  }
+
+  function changeHasHeader(next: boolean) {
+    setHasHeader(next)
+    if (values) onChange(toDataset(values, next))
+  }
+
+  const choose = () =>
+    withLoading(async () => {
+      const picked = await auth.run(pickSpreadsheet)
+      if (!picked) return
+      const info = await auth.run((token) => getSpreadsheet(token, picked.id))
+      setSpreadsheet(info)
+      await loadSheet(info, info.sheets[0])
+    })
+
+  return (
+    <Card withBorder>
+      <Stack gap="sm">
+        <Title order={4}>1. Spreadsheet</Title>
+        <Group gap="sm">
+          <Button onClick={choose} loading={loading && !spreadsheet} disabled={!auth.token}>
+            {spreadsheet ? 'Change spreadsheet' : 'Choose spreadsheet'}
+          </Button>
+          {spreadsheet && sheet && (
+            <Button
+              variant="default"
+              loading={loading}
+              disabled={!auth.token}
+              onClick={() => withLoading(() => loadSheet(spreadsheet, sheet))}
+            >
+              Reload
+            </Button>
+          )}
+        </Group>
+        {!auth.token && (
+          <Text size="sm" c="dimmed">
+            Connect your Google account to choose a spreadsheet.
+          </Text>
+        )}
+        {spreadsheet && (
+          <>
+            <Text fw={500}>{spreadsheet.title}</Text>
+            <Select
+              label="Sheet"
+              data={spreadsheet.sheets}
+              value={sheet}
+              allowDeselect={false}
+              disabled={!auth.token || loading}
+              onChange={(name) => name && withLoading(() => loadSheet(spreadsheet, name))}
+            />
+          </>
+        )}
+        <Checkbox
+          label="First row is a header"
+          description="Use the first row as variable names. Otherwise variables are the column letters: {{ A }}, {{ B }}..."
+          checked={hasHeader}
+          onChange={(event) => changeHasHeader(event.currentTarget.checked)}
+        />
+        {dataset && (
+          <>
+            <Text size="sm" c="dimmed">
+              {dataset.rows.length} rows · {dataset.columns.length} columns
+            </Text>
+            <DataTable dataset={dataset} />
+          </>
+        )}
+        {error && (
+          <Alert color="red" title="Could not load the spreadsheet">
+            {error}
+          </Alert>
+        )}
+      </Stack>
+    </Card>
+  )
+}
