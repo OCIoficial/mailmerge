@@ -88,7 +88,7 @@ export function SpreadsheetPanel({ onChange, children }: Props) {
     })
 
   return (
-    <Card withBorder>
+    <Card withBorder h="100%">
       <Stack gap="sm">
         <Title order={4}>1. Spreadsheet</Title>
         <Group gap="sm">

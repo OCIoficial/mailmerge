@@ -1,11 +1,11 @@
 import { Alert, AppShell, Grid, Stack } from '@mantine/core'
 import { useLocalStorage } from '@mantine/hooks'
-import { useCallback, useDeferredValue, useMemo, useState } from 'react'
-import { AppHeader } from './components/AppHeader.tsx'
+import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react'
+import { AppHeader, type View } from './components/AppHeader.tsx'
 import type { AttachmentTree } from './attachments/tree.ts'
 import { AttachmentsPanel } from './components/AttachmentsPanel.tsx'
 import { NormalizedData } from './components/NormalizedData.tsx'
-import { PreviewList } from './components/PreviewList.tsx'
+import { ReviewView } from './components/ReviewView.tsx'
 import { SendPanel } from './components/SendPanel.tsx'
 import { SpreadsheetPanel } from './components/SpreadsheetPanel.tsx'
 import { TemplateEditor } from './components/TemplateEditor.tsx'
@@ -16,8 +16,23 @@ import { DEFAULT_NORMALIZATION, normalizeDataset, type Normalization } from './m
 import { compileTemplate, renderEmail } from './merge/render.ts'
 import { EMPTY_TEMPLATE, type EmailTemplate } from './merge/template.ts'
 
+/** La vista se guarda en la URL (#review), para que recargar deje al usuario donde estaba. */
+const viewFromHash = (): View => (window.location.hash === '#review' ? 'review' : 'edit')
+
 function App() {
   const auth = useAuth()
+  const [view, setView] = useState<View>(viewFromHash)
+  useEffect(() => {
+    const sync = () => setView(viewFromHash())
+    window.addEventListener('hashchange', sync)
+    return () => window.removeEventListener('hashchange', sync)
+  }, [])
+  const changeView = (next: View) => {
+    // Edit no deja un "#" suelto en la URL; el botón Atrás vuelve entre vistas.
+    if (next === 'review') window.location.hash = 'review'
+    else history.pushState(null, '', window.location.pathname + window.location.search)
+    setView(next)
+  }
   const [dataset, setDataset] = useState<Dataset | null>(null)
   // Árbol de archivos para los adjuntos; no se guarda entre sesiones.
   const [tree, setTree] = useState<AttachmentTree | null>(null)
@@ -71,7 +86,7 @@ function App() {
   return (
     <AppShell header={{ height: 60 }} padding="md">
       <AppShell.Header>
-        <AppHeader />
+        <AppHeader view={view} onViewChange={changeView} problemCount={problemCount} />
       </AppShell.Header>
       <AppShell.Main>
         <Stack gap="md">
@@ -85,33 +100,41 @@ function App() {
               {auth.error}
             </Alert>
           )}
-          <Grid gap="md">
-            <Grid.Col span={{ base: 12, md: 5 }}>
-              <Stack gap="md">
+          {/* Edit se oculta en vez de desmontarse, para conservar el estado de sus paneles. */}
+          <div hidden={view !== 'edit'}>
+            {/* Las columnas se estiran al mismo alto, así las bases de Spreadsheet y Attachments quedan alineadas. */}
+            <Grid gap="md">
+              <Grid.Col span={{ base: 12, lg: 7 }}>
                 <SpreadsheetPanel onChange={changeDataset}>
                   {normalized && (
                     <NormalizedData dataset={normalized} normalization={normalization} onChange={setNormalization} />
                   )}
                 </SpreadsheetPanel>
-                <TemplateEditor template={template} columns={dataset?.columns ?? []} onChange={updateTemplate} />
-                <AttachmentsPanel
-                  tree={tree}
-                  onTreeChange={setTree}
-                  paths={template.attachments}
-                  onPathsChange={(attachments) => updateTemplate({ attachments })}
-                />
-                <SendPanel emails={emails} problemCount={problemCount} sample={Boolean(dataset?.sample)} />
-              </Stack>
-            </Grid.Col>
-            <Grid.Col span={{ base: 12, md: 7 }}>
-              <PreviewList
-                key={datasetVersion}
-                emails={emails}
-                templateErrors={compiled.errors}
-                problemCount={problemCount}
-              />
-            </Grid.Col>
-          </Grid>
+              </Grid.Col>
+              <Grid.Col span={{ base: 12, lg: 5 }}>
+                <Stack gap="md" h="100%">
+                  <TemplateEditor template={template} columns={dataset?.columns ?? []} onChange={updateTemplate} />
+                  <div style={{ flex: 1 }}>
+                    <AttachmentsPanel
+                      tree={tree}
+                      onTreeChange={setTree}
+                      paths={template.attachments}
+                      onPathsChange={(attachments) => updateTemplate({ attachments })}
+                    />
+                  </div>
+                </Stack>
+              </Grid.Col>
+            </Grid>
+          </div>
+          {view === 'review' && (
+            <ReviewView
+              key={datasetVersion}
+              emails={emails}
+              templateErrors={compiled.errors}
+              problemCount={problemCount}
+              sendPanel={<SendPanel emails={emails} problemCount={problemCount} sample={Boolean(dataset?.sample)} />}
+            />
+          )}
         </Stack>
       </AppShell.Main>
     </AppShell>

@@ -1,5 +1,6 @@
 import {
   Avatar,
+  Badge,
   Group,
   Loader,
   Menu,
@@ -80,7 +81,16 @@ function GoogleLogo() {
   )
 }
 
-export function AppHeader() {
+export type View = 'edit' | 'review'
+
+interface Props {
+  view: View
+  onViewChange: (view: View) => void
+  /** Correos con problemas; se muestran junto a Review. */
+  problemCount: number
+}
+
+export function AppHeader({ view, onViewChange, problemCount }: Props) {
   const auth = useAuth()
   // Mantine guarda la elección en localStorage.
   const { colorScheme, setColorScheme } = useMantineColorScheme()
@@ -91,6 +101,28 @@ export function AppHeader() {
         <MergeMark />
         <span className={classes.title}>Mail Merge</span>
       </div>
+
+      <SegmentedControl
+        aria-label="View"
+        value={view}
+        onChange={(value) => onViewChange(value as View)}
+        data={[
+          { value: 'edit', label: 'Edit' },
+          {
+            value: 'review',
+            label: (
+              <Group gap={6} wrap="nowrap" justify="center">
+                Review
+                {problemCount > 0 && (
+                  <Badge size="xs" color="red" circle title={`${problemCount} emails need fixing`}>
+                    {problemCount}
+                  </Badge>
+                )}
+              </Group>
+            ),
+          },
+        ]}
+      />
 
       <Group gap="md" wrap="nowrap">
         <SegmentedControl

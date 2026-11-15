@@ -63,7 +63,7 @@ export function AttachmentsPanel({ tree, onTreeChange, paths, onPathsChange }: P
   const updatePath = (index: number, value: string) => onPathsChange(paths.map((p, i) => (i === index ? value : p)))
 
   return (
-    <Card withBorder>
+    <Card withBorder h="100%">
       <Stack gap="sm">
         <Title order={4}>3. Attachments</Title>
 
