@@ -3,6 +3,7 @@ import { notifications } from '@mantine/notifications'
 import { useState } from 'react'
 import { useAuth } from '../google/AuthContext.tsx'
 import { ADDRESS_FIELDS, type ProblemField, type RenderedEmail } from '../merge/render.ts'
+import { WarningIcon } from './Notice.tsx'
 
 interface Props {
   emails: RenderedEmail[]
@@ -50,9 +51,14 @@ export function SendPanel({ emails, problemCount, sample }: Props) {
           </Text>
         )}
         {problemCount > 0 && (
-          <Text size="sm" c="red">
-            Fix the {problemCount} emails with problems before sending.
-          </Text>
+          <Group gap={6} wrap="nowrap" align="flex-start">
+            <Text c="orange" style={{ display: 'flex', paddingTop: 2 }}>
+              <WarningIcon size={14} />
+            </Text>
+            <Text size="sm" c="dimmed">
+              Fix the {problemCount === 1 ? 'email that needs' : `${problemCount} emails that need`} fixing to send.
+            </Text>
+          </Group>
         )}
       </Stack>
     </Card>

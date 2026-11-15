@@ -1,4 +1,4 @@
-import { Alert, AppShell, Grid, Stack } from '@mantine/core'
+import { AppShell, Grid, Stack } from '@mantine/core'
 import { useLocalStorage } from '@mantine/hooks'
 import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react'
 import { AppHeader, type View } from './components/AppHeader.tsx'
@@ -15,6 +15,7 @@ import type { Dataset } from './merge/dataset.ts'
 import { DEFAULT_NORMALIZATION, normalizeDataset, type Normalization } from './merge/normalize.ts'
 import { compileTemplate, renderEmail } from './merge/render.ts'
 import { EMPTY_TEMPLATE, type EmailTemplate } from './merge/template.ts'
+import { Notice } from './components/Notice.tsx'
 
 /** La vista se guarda en la URL (#review), para que recargar deje al usuario donde estaba. */
 const viewFromHash = (): View => (window.location.hash === '#review' ? 'review' : 'edit')
@@ -91,14 +92,14 @@ function App() {
       <AppShell.Main>
         <Stack gap="md">
           {missingConfig.length > 0 && (
-            <Alert color="orange" title="Incomplete configuration">
+            <Notice tone="warning" title="Incomplete configuration">
               Missing environment variables: {missingConfig.join(', ')}. See <code>.env.example</code>.
-            </Alert>
+            </Notice>
           )}
           {auth.error && (
-            <Alert color="red" title="Could not sign in with Google">
+            <Notice tone="error" title="Could not sign in with Google">
               {auth.error}
-            </Alert>
+            </Notice>
           )}
           {/* Edit se oculta en vez de desmontarse, para conservar el estado de sus paneles. */}
           <div hidden={view !== 'edit'}>

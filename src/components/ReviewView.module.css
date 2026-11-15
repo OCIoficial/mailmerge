@@ -79,8 +79,36 @@
 }
 
 .missing {
-  color: var(--mantine-color-red-text);
+  color: var(--mantine-color-dimmed);
   font-style: italic;
+}
+
+/* Advertencia: ícono + número en naranja, nunca solo color (ver Notice). */
+.warning {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-inline-start: 6px;
+  color: var(--mantine-color-orange-text);
+  font-size: 12px;
+  font-weight: 600;
+  vertical-align: -2px;
+}
+
+.problems {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 12px;
+  margin: 4px 0 0;
+}
+
+.problems dt {
+  color: var(--mantine-color-dimmed);
+}
+
+.problems dd {
+  margin: 0;
+  overflow-wrap: anywhere;
 }
 
 .trailing {
@@ -124,10 +152,6 @@
   margin: 0;
   min-width: 0;
   overflow-wrap: anywhere;
-}
-
-.headers dd[data-problem] {
-  color: var(--mantine-color-red-text);
 }
 
 .chips {

@@ -1,6 +1,5 @@
 import {
   Avatar,
-  Badge,
   Group,
   Loader,
   Menu,
@@ -13,6 +12,7 @@ import {
 } from '@mantine/core'
 import type { ReactNode } from 'react'
 import { useAuth } from '../google/AuthContext.tsx'
+import { WarningIcon } from './Notice.tsx'
 import classes from './AppHeader.module.css'
 
 const iconProps = {
@@ -114,9 +114,17 @@ export function AppHeader({ view, onViewChange, problemCount }: Props) {
               <Group gap={6} wrap="nowrap" justify="center">
                 Review
                 {problemCount > 0 && (
-                  <Badge size="xs" color="red" circle title={`${problemCount} emails need fixing`}>
+                  <Text
+                    span
+                    c="orange"
+                    fz={12}
+                    fw={600}
+                    title={`${problemCount} emails need fixing`}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}
+                  >
+                    <WarningIcon size={13} />
                     {problemCount}
-                  </Badge>
+                  </Text>
                 )}
               </Group>
             ),

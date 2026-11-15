@@ -1,10 +1,11 @@
-import { Alert, Badge, Button, Card, Checkbox, Group, Select, Stack, Text, Title } from '@mantine/core'
+import { Badge, Button, Card, Checkbox, Group, Select, Stack, Text, Title } from '@mantine/core'
 import { useLocalStorage } from '@mantine/hooks'
 import { useState, type ReactNode } from 'react'
 import { getSheetValues, getSpreadsheet, type SpreadsheetInfo } from '../google/api.ts'
 import { useAuth } from '../google/AuthContext.tsx'
 import { pickSpreadsheet } from '../google/picker.ts'
 import { toDataset, type Dataset } from '../merge/dataset.ts'
+import { Notice } from './Notice.tsx'
 
 interface LoadedSpreadsheet extends SpreadsheetInfo {
   /** Solo para la planilla de ejemplo: los valores vienen del código, no de Google. */
@@ -144,9 +145,9 @@ export function SpreadsheetPanel({ onChange, children }: Props) {
         />
         {children}
         {error && (
-          <Alert color="red" title="Could not load the spreadsheet">
+          <Notice tone="error" title="Could not load the spreadsheet">
             {error}
-          </Alert>
+          </Notice>
         )}
       </Stack>
     </Card>

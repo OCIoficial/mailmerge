@@ -1,4 +1,4 @@
-import { ActionIcon, Alert, Button, Card, FileButton, Group, Stack, Text, TextInput, Title } from '@mantine/core'
+import { ActionIcon, Button, Card, FileButton, Group, Stack, Text, TextInput, Title } from '@mantine/core'
 import { useState } from 'react'
 import { readArchive } from '../attachments/archive.ts'
 import type { AttachmentTree } from '../attachments/tree.ts'
@@ -6,6 +6,7 @@ import { useAuth } from '../google/AuthContext.tsx'
 import { downloadDriveFile, loadDriveTree } from '../google/drive.ts'
 import { pickArchive, pickFolder } from '../google/picker.ts'
 import { FileTree } from './FileTree.tsx'
+import { Notice } from './Notice.tsx'
 
 const ARCHIVE_ACCEPT = '.zip,.tar,.tgz,.gz,application/zip,application/x-tar,application/gzip'
 
@@ -102,9 +103,9 @@ export function AttachmentsPanel({ tree, onTreeChange, paths, onPathsChange }: P
           </Text>
         )}
         {error && (
-          <Alert color="red" title="Could not load the files">
+          <Notice tone="error" title="Could not load the files">
             {error}
-          </Alert>
+          </Notice>
         )}
 
         {tree && <FileTree key={tree.root.id} tree={tree} onRemove={() => onTreeChange(null)} />}

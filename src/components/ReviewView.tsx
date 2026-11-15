@@ -1,10 +1,11 @@
-import { Alert, Anchor, Badge, Grid, Group, List, ScrollArea, SegmentedControl, Stack, Text, UnstyledButton } from '@mantine/core'
+import { Anchor, Grid, Group, ScrollArea, SegmentedControl, Stack, Text, UnstyledButton } from '@mantine/core'
 import { useReducedMotion } from '@mantine/hooks'
 import { useState, type ReactNode } from 'react'
 import type { ResolvedAttachment } from '../attachments/resolve.ts'
 import { formatSize } from '../attachments/tree.ts'
 import { PROBLEM_LABELS, type RenderedEmail } from '../merge/render.ts'
 import { FIELD_LABELS } from '../merge/template.ts'
+import { Notice, WarningIcon } from './Notice.tsx'
 import classes from './ReviewView.module.css'
 
 interface Props {
@@ -117,9 +118,10 @@ function EmailRow({ email }: { email: RenderedEmail }) {
           </span>
         )}
         {email.problems.length > 0 && (
-          <Badge color="red" size="sm" circle title={`${email.problems.length} problems`}>
+          <span className={classes.warning} title={`${email.problems.length} to fix`}>
+            <WarningIcon size={13} />
             {email.problems.length}
-          </Badge>
+          </span>
         )}
       </div>
     </div>
@@ -127,18 +129,24 @@ function EmailRow({ email }: { email: RenderedEmail }) {
 }
 
 function EmailDetail({ email, device }: { email: RenderedEmail; device: Device }) {
-  const fieldsWithProblems = new Set(email.problems.map((problem) => problem.field))
+  const problemsByField = new Map<string, string[]>()
+  for (const problem of email.problems) {
+    problemsByField.set(problem.field, [...(problemsByField.get(problem.field) ?? []), problem.message])
+  }
+  const count = email.problems.length
   return (
     <Stack gap="sm">
-      {email.problems.length > 0 && (
-        <Alert color="red" p="xs" title="Fix before sending">
-          <List size="sm">
-            {email.problems.map((problem) => {
-              const text = `${PROBLEM_LABELS[problem.field]}: ${problem.message}`
-              return <List.Item key={text}>{text}</List.Item>
-            })}
-          </List>
-        </Alert>
+      {count > 0 && (
+        <Notice tone="warning" title={count === 1 ? '1 thing to fix before sending' : `${count} things to fix before sending`}>
+          <dl className={classes.problems}>
+            {email.problems.map((problem, i) => (
+              <div key={i} style={{ display: 'contents' }}>
+                <dt>{PROBLEM_LABELS[problem.field]}</dt>
+                <dd>{problem.message}</dd>
+              </div>
+            ))}
+          </dl>
+        </Notice>
       )}
 
       <h3 className={classes.subject}>{email.subject || <span className={classes.missing}>No subject</span>}</h3>
@@ -147,7 +155,14 @@ function EmailDetail({ email, device }: { email: RenderedEmail; device: Device }
         {ADDRESS_FIELDS.filter((field) => email[field] || field === 'to').map((field) => (
           <div key={field} style={{ display: 'contents' }}>
             <dt>{FIELD_LABELS[field]}</dt>
-            <dd data-problem={fieldsWithProblems.has(field) || undefined}>{email[field] || '—'}</dd>
+            <dd>
+              {email[field] || <span className={classes.missing}>None</span>}
+              {problemsByField.has(field) && (
+                <span className={classes.warning} title={problemsByField.get(field)?.join('\n')}>
+                  <WarningIcon size={13} />
+                </span>
+              )}
+            </dd>
           </div>
         ))}
       </dl>
@@ -207,30 +222,26 @@ export function ReviewView({ emails, templateErrors, problemCount, sendPanel }: 
       </Group>
 
       {templateErrors.length > 0 && (
-        <Alert color="red" title="Fix the template to see the emails">
-          <List size="sm">
-            {templateErrors.map((error) => (
-              <List.Item key={error}>{error}</List.Item>
-            ))}
-          </List>
-        </Alert>
+        <Notice tone="error" title="The template has errors, so no emails can be generated">
+          {templateErrors.map((error) => (
+            <div key={error}>{error}</div>
+          ))}
+        </Notice>
       )}
 
       {withProblems.length > 0 && (
-        <Alert color="red" variant="light" p="xs">
-          <Text size="sm">
-            {withProblems.length === 1 ? '1 email needs' : `${withProblems.length} emails need`} fixing before
-            sending:{' '}
-            {withProblems.map((email, i) => (
-              <span key={email.index}>
-                {i > 0 && ', '}
-                <Anchor component="button" type="button" size="sm" c="red" onClick={() => select(email.index)}>
-                  #{email.index + 1}
-                </Anchor>
-              </span>
-            ))}
-          </Text>
-        </Alert>
+        <Notice tone="warning">
+          {withProblems.length === 1 ? '1 email needs' : `${withProblems.length} emails need`} fixing before
+          sending:{' '}
+          {withProblems.map((email, i) => (
+            <span key={email.index}>
+              {i > 0 && ', '}
+              <Anchor component="button" type="button" fz="inherit" onClick={() => select(email.index)}>
+                #{email.index + 1}
+              </Anchor>
+            </span>
+          ))}
+        </Notice>
       )}
 
       {emails.length === 0 && templateErrors.length === 0 ? (
