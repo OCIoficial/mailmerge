@@ -246,7 +246,7 @@ export function ReviewView({ emails, templateErrors, problemCount, sendPanel }: 
 
       {emails.length === 0 && templateErrors.length === 0 ? (
         <Text c="dimmed" size="sm">
-          Choose a spreadsheet in Edit to preview one email per row.
+          No emails yet. In Edit, choose a spreadsheet and include at least one row.
         </Text>
       ) : (
         <Grid gap="md">

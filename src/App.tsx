@@ -64,8 +64,13 @@ function App() {
     [setTemplate],
   )
 
+  // Filas excluidas del envío, por índice. Se reinician al cambiar de hoja o de encabezado,
+  // porque los índices dejan de corresponder a las mismas filas.
+  const [excluded, setExcluded] = useState<Set<number>>(() => new Set())
+
   const changeDataset = useCallback((next: Dataset | null) => {
     setDataset(next)
+    setExcluded(new Set())
     setDatasetVersion((version) => version + 1)
   }, [])
 
@@ -79,8 +84,8 @@ function App() {
   const deferredTemplate = useDeferredValue(template)
   const compiled = useMemo(() => compileTemplate(deferredTemplate), [deferredTemplate])
   const emails = useMemo(
-    () => (compiled.errors.length > 0 ? [] : (normalized?.rows ?? []).map((row, i) => renderEmail(compiled, row, i, tree))),
-    [compiled, normalized, tree],
+    () => (compiled.errors.length > 0 ? [] : (normalized?.rows ?? []).flatMap((row, i) => (excluded.has(i) ? [] : [renderEmail(compiled, row, i, tree)]))),
+    [compiled, normalized, tree, excluded],
   )
   const problemCount = emails.filter((email) => email.problems.length > 0).length
 
@@ -108,7 +113,13 @@ function App() {
               <Grid.Col span={{ base: 12, lg: 7 }}>
                 <SpreadsheetPanel onChange={changeDataset}>
                   {normalized && (
-                    <NormalizedData dataset={normalized} normalization={normalization} onChange={setNormalization} />
+                    <NormalizedData
+                      dataset={normalized}
+                      normalization={normalization}
+                      onChange={setNormalization}
+                      excluded={excluded}
+                      onExcludedChange={setExcluded}
+                    />
                   )}
                 </SpreadsheetPanel>
               </Grid.Col>

@@ -1,4 +1,4 @@
-import { Checkbox, Group, Stack, Switch, Text } from '@mantine/core'
+import { Anchor, Checkbox, Group, Stack, Switch, Text } from '@mantine/core'
 import { useState } from 'react'
 import type { GlobalNormalization, Normalization, NormalizedDataset, Step } from '../merge/normalize.ts'
 import { DataTable } from './DataTable.tsx'
@@ -13,9 +13,11 @@ interface Props {
   dataset: NormalizedDataset
   normalization: Normalization
   onChange: (normalization: Normalization) => void
+  excluded: Set<number>
+  onExcludedChange: (excluded: Set<number>) => void
 }
 
-export function NormalizedData({ dataset, normalization, onChange }: Props) {
+export function NormalizedData({ dataset, normalization, onChange, excluded, onExcludedChange }: Props) {
   const [showOriginal, setShowOriginal] = useState(false)
 
   return (
@@ -42,7 +44,18 @@ export function NormalizedData({ dataset, normalization, onChange }: Props) {
 
       <Group justify="space-between">
         <Text size="sm" c="dimmed">
-          {dataset.rows.length} rows, {dataset.columns.length} columns, {dataset.changedCells} cells changed
+          {excluded.size > 0 ? (
+            <>
+              {dataset.rows.length - excluded.size} of {dataset.rows.length} rows included (
+              <Anchor component="button" type="button" fz="inherit" onClick={() => onExcludedChange(new Set())}>
+                Include all
+              </Anchor>
+              )
+            </>
+          ) : (
+            `${dataset.rows.length} rows`
+          )}
+          , {dataset.columns.length} columns, {dataset.changedCells} cells changed
         </Text>
         <Switch
           size="xs"
@@ -56,6 +69,8 @@ export function NormalizedData({ dataset, normalization, onChange }: Props) {
         dataset={dataset}
         normalization={normalization}
         showOriginal={showOriginal}
+        excluded={excluded}
+        onExcludedChange={onExcludedChange}
         onColumnStepsChange={(key, steps: Step[]) =>
           onChange({ ...normalization, columns: { ...normalization.columns, [key]: steps } })
         }
