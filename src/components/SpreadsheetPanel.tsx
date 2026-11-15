@@ -1,11 +1,10 @@
 import { Alert, Badge, Button, Card, Checkbox, Group, Select, Stack, Text, Title } from '@mantine/core'
 import { useLocalStorage } from '@mantine/hooks'
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { getSheetValues, getSpreadsheet, type SpreadsheetInfo } from '../google/api.ts'
 import { useAuth } from '../google/AuthContext.tsx'
 import { pickSpreadsheet } from '../google/picker.ts'
 import { toDataset, type Dataset } from '../merge/dataset.ts'
-import { DataTable } from './DataTable.tsx'
 
 interface LoadedSpreadsheet extends SpreadsheetInfo {
   /** Solo para la planilla de ejemplo: los valores vienen del código, no de Google. */
@@ -13,11 +12,12 @@ interface LoadedSpreadsheet extends SpreadsheetInfo {
 }
 
 interface Props {
-  dataset: Dataset | null
   onChange: (dataset: Dataset | null) => void
+  /** Se muestra al final de la tarjeta (normalización y tabla de datos). */
+  children?: ReactNode
 }
 
-export function SpreadsheetPanel({ dataset, onChange }: Props) {
+export function SpreadsheetPanel({ onChange, children }: Props) {
   const auth = useAuth()
   const [spreadsheet, setSpreadsheet] = useState<LoadedSpreadsheet | null>(null)
   const [sheet, setSheet] = useState<string | null>(null)
@@ -142,14 +142,7 @@ export function SpreadsheetPanel({ dataset, onChange }: Props) {
           checked={hasHeader}
           onChange={(event) => changeHasHeader(event.currentTarget.checked)}
         />
-        {dataset && (
-          <>
-            <Text size="sm" c="dimmed">
-              {dataset.rows.length} rows · {dataset.columns.length} columns
-            </Text>
-            <DataTable dataset={dataset} />
-          </>
-        )}
+        {children}
         {error && (
           <Alert color="red" title="Could not load the spreadsheet">
             {error}

@@ -3,6 +3,7 @@ import { useLocalStorage } from '@mantine/hooks'
 import { useCallback, useDeferredValue, useMemo, useState } from 'react'
 import { AppHeader } from './components/AppHeader.tsx'
 import { AttachmentsPanel } from './components/AttachmentsPanel.tsx'
+import { NormalizedData } from './components/NormalizedData.tsx'
 import { PreviewList } from './components/PreviewList.tsx'
 import { SendPanel } from './components/SendPanel.tsx'
 import { SpreadsheetPanel } from './components/SpreadsheetPanel.tsx'
@@ -10,6 +11,7 @@ import { TemplateEditor } from './components/TemplateEditor.tsx'
 import { missingConfig } from './config.ts'
 import { useAuth } from './google/AuthContext.tsx'
 import type { Dataset } from './merge/dataset.ts'
+import { DEFAULT_NORMALIZATION, normalizeDataset, type Normalization } from './merge/normalize.ts'
 import { compileTemplate, renderEmail } from './merge/render.ts'
 import { EMPTY_TEMPLATE, type EmailTemplate } from './merge/template.ts'
 
@@ -32,6 +34,12 @@ function App() {
     },
   })
 
+  const [normalization, setNormalization] = useLocalStorage<Normalization>({
+    key: 'mail-merge:normalization',
+    defaultValue: DEFAULT_NORMALIZATION,
+    getInitialValueInEffect: false,
+  })
+
   const updateTemplate = useCallback(
     (patch: Partial<EmailTemplate>) => setTemplate((current) => ({ ...current, ...patch })),
     [setTemplate],
@@ -42,12 +50,18 @@ function App() {
     setDatasetVersion((version) => version + 1)
   }, [])
 
+  // Los correos se renderizan con los datos ya normalizados.
+  const normalized = useMemo(
+    () => (dataset ? normalizeDataset(dataset, normalization) : null),
+    [dataset, normalization],
+  )
+
   // El render de todas las filas no bloquea la escritura en el editor.
   const deferredTemplate = useDeferredValue(template)
   const compiled = useMemo(() => compileTemplate(deferredTemplate), [deferredTemplate])
   const emails = useMemo(
-    () => (compiled.errors.length > 0 ? [] : (dataset?.rows ?? []).map((row, i) => renderEmail(compiled, row, i))),
-    [compiled, dataset],
+    () => (compiled.errors.length > 0 ? [] : (normalized?.rows ?? []).map((row, i) => renderEmail(compiled, row, i))),
+    [compiled, normalized],
   )
   const problemCount = emails.filter((email) => email.problems.length > 0).length
 
@@ -71,7 +85,11 @@ function App() {
           <Grid gap="md">
             <Grid.Col span={{ base: 12, md: 5 }}>
               <Stack gap="md">
-                <SpreadsheetPanel dataset={dataset} onChange={changeDataset} />
+                <SpreadsheetPanel onChange={changeDataset}>
+                  {normalized && (
+                    <NormalizedData dataset={normalized} normalization={normalization} onChange={setNormalization} />
+                  )}
+                </SpreadsheetPanel>
                 <TemplateEditor template={template} columns={dataset?.columns ?? []} onChange={updateTemplate} />
                 <AttachmentsPanel />
                 <SendPanel emails={emails} problemCount={problemCount} sample={Boolean(dataset?.sample)} />

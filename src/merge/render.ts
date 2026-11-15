@@ -1,14 +1,8 @@
 import { Liquid, type Template } from 'liquidjs'
 import MarkdownIt from 'markdown-it'
 import type { Row } from './dataset.ts'
+import { titlecase } from './normalize.ts'
 import { FIELD_LABELS, type EmailTemplate, type TemplateField } from './template.ts'
-
-/** "juan PÉREZ o'higgins" → "Juan Pérez O'Higgins" */
-export function titlecase(value: unknown): string {
-  return String(value ?? '')
-    .toLocaleLowerCase()
-    .replace(/(^|[\s\-'’])(\p{L})/gu, (_, before: string, letter: string) => before + letter.toLocaleUpperCase())
-}
 
 function createEngine(escapeHtml: boolean) {
   const engine = new Liquid({
