@@ -19,6 +19,7 @@ import StarterKit from '@tiptap/starter-kit'
 import { useLocalStorage } from '@mantine/hooks'
 import { useId, useRef, useState } from 'react'
 import type { Column } from '../merge/dataset.ts'
+import { HelpPopover, HelpRows, HelpSection } from './HelpPopover.tsx'
 import { MarkdownEditor, type MarkdownEditorHandle } from './MarkdownEditor.tsx'
 import { FIELD_LABELS, type BodyFormat, type EmailTemplate, type TemplateField } from '../merge/template.ts'
 
@@ -225,37 +226,51 @@ export function TemplateEditor({ template, columns, onChange }: Props) {
           )}
           {/* Barra inferior del editor, como en GitLab: formato a la izquierda, Vim a la derecha. */}
           <Group justify="space-between" gap="xs">
-            <SegmentedControl
-              size="xs"
-              aria-label="Body format"
-              data={FORMATS}
-              value={template.format}
-              onChange={(value) => onChange({ format: value as BodyFormat })}
-              title="Each format keeps its own text; switching doesn't convert it."
-            />
+            <Group gap="xs">
+              <SegmentedControl
+                size="xs"
+                aria-label="Body format"
+                data={FORMATS}
+                value={template.format}
+                onChange={(value) => onChange({ format: value as BodyFormat })}
+                title="Each format keeps its own text; switching doesn't convert it."
+              />
+              <HelpPopover label="Syntax help">
+                <HelpSection title="Variables (Liquid)">
+                  <HelpRows
+                    rows={[
+                      ['{{ name }}', 'The value of column name in each row'],
+                      ['{{ name | titlecase }}', 'Capitalizes each word'],
+                      ['{{ amount | default: "0" }}', '"0" when the cell is empty'],
+                      ['{% if group == "A" %}…{% endif %}', 'Only for some rows'],
+                    ]}
+                  />
+                  <Anchor href="https://liquidjs.com/filters/overview.html" target="_blank" size="xs">
+                    All Liquid filters ↗
+                  </Anchor>
+                </HelpSection>
+                {template.format === 'markdown' && (
+                  <HelpSection title="Markdown">
+                    <HelpRows
+                      rows={[
+                        ['**bold**', 'Bold'],
+                        ['*italic*', 'Italic'],
+                        ['[text](https://…)', 'Link'],
+                        ['- item', 'List'],
+                      ]}
+                    />
+                    <Anchor href="https://commonmark.org/help/" target="_blank" size="xs">
+                      Markdown guide ↗
+                    </Anchor>
+                  </HelpSection>
+                )}
+              </HelpPopover>
+            </Group>
             {template.format === 'markdown' && (
               <Switch size="xs" label="Vim" checked={vim} onChange={(event) => setVim(event.currentTarget.checked)} />
             )}
           </Group>
         </Stack>
-
-        <Text size="xs" c="dimmed">
-          Syntax{' '}
-          <Anchor href="https://liquidjs.com/filters/overview.html" target="_blank" size="xs">
-            Liquid
-          </Anchor>
-          : <code>{'{{ name | titlecase }}'}</code>, <code>{'{{ amount | default: "0" }}'}</code>,{' '}
-          <code>{'{% if group == "A" %}...{% endif %}'}</code>. Extra filter: <code>titlecase</code>.
-          {template.format === 'markdown' && (
-            <>
-              {' '}
-              <Anchor href="https://commonmark.org/help/" target="_blank" size="xs">
-                Markdown
-              </Anchor>
-              : <code>**bold**</code>, <code>*italic*</code>, <code>[link](https://…)</code>, <code>- list</code>.
-            </>
-          )}
-        </Text>
       </Stack>
     </Card>
   )

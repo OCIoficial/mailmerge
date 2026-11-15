@@ -1,4 +1,5 @@
 import { ActionIcon, Button, Card, Checkbox, FileButton, Group, Stack, Text, TextInput, Title } from '@mantine/core'
+import { HelpPopover, HelpRows, HelpSection } from './HelpPopover.tsx'
 import { IconBrandGoogleDrive, IconFileZip, IconFlask, IconPlus, IconUpload, IconX } from '@tabler/icons-react'
 import { useState } from 'react'
 import { readArchive } from '../attachments/archive.ts'
@@ -111,9 +112,12 @@ export function AttachmentsPanel({ tree, onTreeChange, paths, onPathsChange }: P
               </Button>
             )}
           </Group>
-          <Text size="xs" c="dimmed">
-            A Drive folder, or a ZIP, TAR or TAR.GZ archive. Attachment paths are relative to it.
-          </Text>
+          {/* Ayuda para elegir la fuente; con archivos cargados, el árbol ya lo muestra. */}
+          {!tree && (
+            <Text size="xs" c="dimmed">
+              A Drive folder, or a ZIP, TAR or TAR.GZ archive. Attachment paths are relative to it.
+            </Text>
+          )}
         </Stack>
 
         {loading && (
@@ -130,9 +134,32 @@ export function AttachmentsPanel({ tree, onTreeChange, paths, onPathsChange }: P
         {tree && <FileTree key={tree.root.id} tree={tree} onRemove={() => onTreeChange(null)} />}
 
         <Stack gap={6}>
-          <Text size="sm" fw={500}>
-            Attachment paths
-          </Text>
+          <Group gap={4}>
+            <Text size="sm" fw={500}>
+              Attachment paths
+            </Text>
+            <HelpPopover label="Attachment path help" iconOnly>
+              <HelpSection title="Paths">
+                <HelpRows
+                  rows={[
+                    ['Alumnos/{{ rut }}/informe.pdf', 'One file per row, using template variables'],
+                    ['Alumnos/{{ rut }}/*.pdf', '* matches any characters in a name'],
+                    ['Alumnos/**/{{ rut }}.pdf', '** matches any number of folders'],
+                    ['Alumnos/{{ rut }}', 'A folder is attached as a ZIP'],
+                  ]}
+                />
+                <Text size="xs" c="dimmed" mt={6}>
+                  Paths are relative to the loaded folder or archive. Matching is exact, including case and accents.
+                </Text>
+              </HelpSection>
+              <HelpSection title="Required">
+                <Text size="xs" c="dimmed">
+                  Checked: if nothing matches, the email is marked as needing fixing. Unchecked: the email is sent
+                  without that attachment.
+                </Text>
+              </HelpSection>
+            </HelpPopover>
+          </Group>
           {paths.map(({ path, required }, index) => (
             <Group key={index} gap={8} wrap="nowrap">
               <TextInput
@@ -175,11 +202,6 @@ export function AttachmentsPanel({ tree, onTreeChange, paths, onPathsChange }: P
               Add path
             </Button>
           </Group>
-          <Text size="xs" c="dimmed">
-            Paths can use template variables. <code>*</code> matches any characters in a name, <code>**</code> any
-            number of folders. Matching is exact, including case and accents. A folder is attached as a ZIP. If a path
-            isn't required and nothing matches, the email is sent without that attachment.
-          </Text>
         </Stack>
       </Stack>
     </Card>
