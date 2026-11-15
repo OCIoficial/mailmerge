@@ -56,7 +56,9 @@ En modo Testing no se requiere verificación de Google. Al iniciar sesión apare
    OAuth client ID**), crear un cliente de tipo **Web application**.
 2. En **Authorized JavaScript origins**, agregar:
    - `http://localhost:5173`
-   - `https://<usuario>.github.io` (solo el origen, sin la ruta del repositorio)
+   - El origen donde se publica la app, solo el dominio y sin la ruta del repositorio:
+     `https://<usuario>.github.io`, o el dominio propio de la organización si tiene uno
+     (por ejemplo `https://www.olimpiada-informatica.cl`).
 3. **Authorized redirect URIs** se deja vacío.
 4. Copiar el **Client ID** (`xxxx.apps.googleusercontent.com`). El *client secret* no se usa:
    no hay que copiarlo ni guardarlo en ninguna parte.
@@ -69,7 +71,8 @@ En modo Testing no se requiere verificación de Google. Al iniciar sesión apare
    - Si aparece la opción de autenticar mediante una *service account*, dejarla desmarcada.
 2. Editar la key y en **Application restrictions → Websites** agregar:
    - `http://localhost:5173/*`
-   - `https://<usuario>.github.io/<repo>/*`
+   - La URL de la app con `/*` al final: `https://<usuario>.github.io/<repo>/*`, o con el dominio
+     propio (por ejemplo `https://www.olimpiada-informatica.cl/mailmerge/*`)
    - `https://docs.google.com/*` (requerido: el Picker se muestra en un iframe de ese dominio)
 
 ### 5. Obtener el número del proyecto → `VITE_GOOGLE_APP_ID`

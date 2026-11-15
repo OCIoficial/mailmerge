@@ -74,8 +74,9 @@ Todos estos valores son **públicos por diseño** y van incluidos en el bundle:
 Configurados en el OAuth Client ID y en las restricciones de la API key:
 
 - `http://localhost:5173` (desarrollo)
-- `https://<usuario>.github.io` (GitHub Pages). En el OAuth Client ID va solo el origen; en la
-  API key, `https://<usuario>.github.io/<repo>/*`
+- El origen de GitHub Pages: `https://<usuario>.github.io`, o el dominio propio de la organización
+  (por ejemplo `https://www.olimpiada-informatica.cl`). En el OAuth Client ID va solo el origen; en la
+  API key, la URL de la app con `/*` (por ejemplo `https://www.olimpiada-informatica.cl/mailmerge/*`)
 
 Los orígenes deben usar HTTPS; `localhost` es la única excepción. Google rechaza las
 solicitudes de autorización desde cualquier otro origen (error `origin_mismatch`).

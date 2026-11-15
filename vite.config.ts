@@ -3,7 +3,8 @@ import { defineConfig } from 'vite'
 
 // https://vite.dev/config/
 export default defineConfig({
-  // En GitHub Pages la app se sirve bajo /<repo>/; el workflow define BASE_PATH.
-  base: process.env.BASE_PATH ?? '/',
+  // Rutas relativas: la app funciona en cualquier dominio o ruta (github.io/<repo>/, un dominio
+  // propio, o el repo renombrado). No hay rutas propias, solo #review, así que no hace falta una base fija.
+  base: './',
   plugins: [react()],
 })

@@ -27,7 +27,6 @@ jobs:
       - run: npm run lint
       - run: npm run build
         env:
-          BASE_PATH: /${{ github.event.repository.name }}/
           # Valores públicos: se guardan como Variables (no Secrets) del repositorio.
           VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
           VITE_GOOGLE_API_KEY: ${{ vars.VITE_GOOGLE_API_KEY }}
