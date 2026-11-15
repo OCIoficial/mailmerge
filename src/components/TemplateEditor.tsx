@@ -2,6 +2,7 @@ import {
   Anchor,
   Button,
   Card,
+  CloseButton,
   Group,
   SegmentedControl,
   SimpleGrid,
@@ -9,25 +10,23 @@ import {
   Switch,
   Text,
   TextInput,
+  type TextInputProps,
   Title,
 } from '@mantine/core'
 import { Link, RichTextEditor } from '@mantine/tiptap'
 import { useEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import { useLocalStorage } from '@mantine/hooks'
-import { useRef, useState } from 'react'
+import { useId, useRef, useState } from 'react'
 import type { Column } from '../merge/dataset.ts'
 import { MarkdownEditor, type MarkdownEditorHandle } from './MarkdownEditor.tsx'
 import { FIELD_LABELS, type BodyFormat, type EmailTemplate, type TemplateField } from '../merge/template.ts'
 
 type TextField = Exclude<TemplateField, 'body'>
 
-const TEXT_FIELDS: { field: TextField; placeholder: string }[] = [
-  { field: 'to', placeholder: '{{ email }}' },
-  { field: 'cc', placeholder: 'Optional' },
-  { field: 'bcc', placeholder: 'Optional' },
-  { field: 'replyTo', placeholder: 'Optional' },
-]
+/** Campos poco usados: ocultos hasta que se piden con su enlace junto a To, como en Gmail. */
+const OPTIONAL_FIELDS = ['cc', 'bcc', 'replyTo'] as const satisfies TextField[]
+type OptionalField = (typeof OPTIONAL_FIELDS)[number]
 
 const FORMATS: { value: BodyFormat; label: string }[] = [
   { value: 'markdown', label: 'Markdown' },
@@ -46,6 +45,28 @@ export function TemplateEditor({ template, columns, onChange }: Props) {
   // Preferencia personal, no del template: se guarda aparte.
   const [vim, setVim] = useLocalStorage({ key: 'mail-merge:vim', defaultValue: false, getInitialValueInEffect: false })
   const [target, setTarget] = useState<TemplateField>('body')
+  const toId = useId()
+  // Abiertos en esta sesión. Un campo con valor se muestra siempre, aunque no esté aquí:
+  // el template se guarda en el navegador y un Bcc oculto que igual se envía sería peor.
+  const [opened, setOpened] = useState<ReadonlySet<OptionalField>>(() => new Set())
+  const isVisible = (field: OptionalField) => opened.has(field) || template[field] !== ''
+  const visibleOptional = OPTIONAL_FIELDS.filter(isVisible)
+  const hiddenOptional = OPTIONAL_FIELDS.filter((field) => !isVisible(field))
+
+  function openField(field: OptionalField) {
+    setOpened((current) => new Set(current).add(field))
+    // El cursor va al campo nuevo, así también recibe las variables que se inserten.
+    requestAnimationFrame(() => inputs.current[field]?.focus())
+  }
+
+  function closeField(field: OptionalField) {
+    setOpened((current) => {
+      const next = new Set(current)
+      next.delete(field)
+      return next
+    })
+    if (target === field) setTarget('body')
+  }
 
   const editor = useEditor({
     extensions: [StarterKit.configure({ link: false }), Link.configure({ openOnClick: false })],
@@ -73,17 +94,17 @@ export function TemplateEditor({ template, columns, onChange }: Props) {
     })
   }
 
-  const textInput = (field: TextField, placeholder?: string) => (
+  const textInput = (field: TextField, props: Partial<TextInputProps> = {}) => (
     <TextInput
       key={field}
       label={FIELD_LABELS[field]}
-      placeholder={placeholder}
       value={template[field]}
       ref={(element) => {
         inputs.current[field] = element
       }}
       onFocus={() => setTarget(field)}
       onChange={(event) => onChange({ [field]: event.currentTarget.value })}
+      {...props}
     />
   )
 
@@ -114,9 +135,48 @@ export function TemplateEditor({ template, columns, onChange }: Props) {
           </Stack>
         )}
 
-        <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm" verticalSpacing="xs">
-          {TEXT_FIELDS.map(({ field, placeholder }) => textInput(field, placeholder))}
-        </SimpleGrid>
+        <Stack gap={4}>
+          {/* Etiqueta propia: los enlaces no pueden ir dentro del <label> de To. */}
+          <Group justify="space-between" gap="xs" wrap="nowrap">
+            <Text component="label" htmlFor={toId} size="sm" fw={500}>
+              {FIELD_LABELS.to}
+            </Text>
+            {hiddenOptional.length > 0 && (
+              <Group gap={2} wrap="nowrap">
+                {hiddenOptional.map((field) => (
+                  <Button
+                    key={field}
+                    size="compact-sm"
+                    variant="subtle"
+                    fw={500}
+                    aria-label={`Add ${FIELD_LABELS[field]}`}
+                    onClick={() => openField(field)}
+                  >
+                    {FIELD_LABELS[field]}
+                  </Button>
+                ))}
+              </Group>
+            )}
+          </Group>
+          {textInput('to', { id: toId, label: undefined, placeholder: '{{ email }}' })}
+        </Stack>
+        {visibleOptional.length > 0 && (
+          <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm" verticalSpacing="xs">
+            {visibleOptional.map((field) =>
+              textInput(field, {
+                // Solo un campo vacío se puede cerrar: cerrar no debe borrar nada.
+                rightSection:
+                  template[field] === '' ? (
+                    <CloseButton
+                      size="sm"
+                      aria-label={`Remove ${FIELD_LABELS[field]}`}
+                      onClick={() => closeField(field)}
+                    />
+                  ) : undefined,
+              }),
+            )}
+          </SimpleGrid>
+        )}
         {textInput('subject')}
 
         <Stack gap={4}>
@@ -174,12 +234,7 @@ export function TemplateEditor({ template, columns, onChange }: Props) {
               title="Each format keeps its own text; switching doesn't convert it."
             />
             {template.format === 'markdown' && (
-              <Switch
-                size="xs"
-                label="Vim"
-                checked={vim}
-                onChange={(event) => setVim(event.currentTarget.checked)}
-              />
+              <Switch size="xs" label="Vim" checked={vim} onChange={(event) => setVim(event.currentTarget.checked)} />
             )}
           </Group>
         </Stack>
