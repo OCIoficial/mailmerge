@@ -13,7 +13,8 @@ import { TemplateEditor } from './components/TemplateEditor.tsx'
 import { missingConfig } from './config.ts'
 import { useAuth } from './google/AuthContext.tsx'
 import type { Dataset } from './merge/dataset.ts'
-import { DEFAULT_NORMALIZATION, normalizeDataset, type Normalization } from './merge/normalize.ts'
+import { normalizeDataset, type Normalization } from './merge/normalize.ts'
+import { DEFAULT_SHEET_SETTINGS, useSheetSettings } from './merge/sheetSettings.ts'
 import { compileTemplate, renderEmail } from './merge/render.ts'
 import { EMPTY_TEMPLATE, type EmailTemplate } from './merge/template.ts'
 import { Notice } from './components/Notice.tsx'
@@ -54,11 +55,8 @@ function App() {
     },
   })
 
-  const [normalization, setNormalization] = useLocalStorage<Normalization>({
-    key: 'mail-merge:normalization',
-    defaultValue: DEFAULT_NORMALIZATION,
-    getInitialValueInEffect: false,
-  })
+  // Encabezado y normalización se guardan por hoja: cada hoja tiene sus columnas.
+  const sheetSettings = useSheetSettings()
 
   const updateTemplate = useCallback(
     (patch: Partial<EmailTemplate>) => setTemplate((current) => ({ ...current, ...patch })),
@@ -80,6 +78,16 @@ function App() {
       setDatasetVersion((version) => version + 1)
     },
     [resetSender],
+  )
+
+  const currentSheet = dataset?.sheetKey
+  const normalization = currentSheet
+    ? sheetSettings.settingsFor(currentSheet).normalization
+    : DEFAULT_SHEET_SETTINGS.normalization
+  const updateSheetSettings = sheetSettings.update
+  const setNormalization = useCallback(
+    (next: Normalization) => currentSheet && updateSheetSettings(currentSheet, { normalization: next }),
+    [currentSheet, updateSheetSettings],
   )
 
   // Los correos se renderizan con los datos ya normalizados.
@@ -119,7 +127,7 @@ function App() {
             {/* Las columnas se estiran al mismo alto, así las bases de Spreadsheet y Attachments quedan alineadas. */}
             <Grid gap="md">
               <Grid.Col span={{ base: 12, lg: 7 }}>
-                <SpreadsheetPanel onChange={changeDataset}>
+                <SpreadsheetPanel onChange={changeDataset} settings={sheetSettings}>
                   {normalized && (
                     <NormalizedData
                       dataset={normalized}

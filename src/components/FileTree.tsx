@@ -1,4 +1,5 @@
 import { Badge, Button, ScrollArea, Text } from '@mantine/core'
+import { IconX } from '@tabler/icons-react'
 import { useState, type CSSProperties } from 'react'
 import { filesIn, formatSize, type AttachmentTree, type TreeNode } from '../attachments/tree.ts'
 import classes from './FileTree.module.css'
@@ -130,7 +131,7 @@ export function FileTree({ tree, onRemove }: Props) {
         <Text size="xs" c="dimmed" style={{ flex: 'none', fontVariantNumeric: 'tabular-nums' }}>
           {tree.fileCount} files, {formatSize(tree.totalSize)}
         </Text>
-        <Button size="compact-xs" variant="subtle" color="gray" onClick={onRemove}>
+        <Button size="compact-sm" variant="subtle" color="gray" leftSection={<IconX size={14} />} onClick={onRemove}>
           Remove
         </Button>
       </div>

@@ -1,5 +1,6 @@
 import { Button, Card, Group, Modal, Progress, Stack, Text, TextInput, Title } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
+import { IconMailForward, IconPlayerStop, IconSend } from '@tabler/icons-react'
 import { useState } from 'react'
 import { useAuth } from '../google/AuthContext.tsx'
 import type { Sender } from '../mail/useSender.ts'
@@ -69,6 +70,7 @@ export function SendPanel({ emails, sender, sample }: Props) {
           />
           <Button
             variant="default"
+            leftSection={<IconMailForward size={16} />}
             loading={testing}
             disabled={!auth.token || !testTo.includes('@') || !firstRenders || sender.running}
             onClick={sendTest}
@@ -83,7 +85,7 @@ export function SendPanel({ emails, sender, sample }: Props) {
               <Text size="sm">
                 Sending {Math.min(sender.progress.done + 1, sender.progress.total)} of {sender.progress.total}…
               </Text>
-              <Button size="compact-sm" variant="default" onClick={sender.stop}>
+              <Button variant="default" leftSection={<IconPlayerStop size={16} />} onClick={sender.stop}>
                 Stop
               </Button>
             </Group>
@@ -91,6 +93,7 @@ export function SendPanel({ emails, sender, sample }: Props) {
           </Stack>
         ) : pending.length > 0 ? (
           <Button
+            leftSection={<IconSend size={16} />}
             disabled={!auth.token || sample || blocking > 0}
             onClick={() => setConfirming(true)}
           >
@@ -146,7 +149,9 @@ export function SendPanel({ emails, sender, sample }: Props) {
             <Button variant="default" onClick={() => setConfirming(false)}>
               Cancel
             </Button>
-            <Button onClick={confirmSend}>{sendLabel}</Button>
+            <Button leftSection={<IconSend size={16} />} onClick={confirmSend}>
+              {sendLabel}
+            </Button>
           </Group>
         </Stack>
       </Modal>

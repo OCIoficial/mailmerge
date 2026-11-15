@@ -1,4 +1,5 @@
 import { ActionIcon, Button, Card, FileButton, Group, Stack, Text, TextInput, Title } from '@mantine/core'
+import { IconBrandGoogleDrive, IconFileZip, IconFlask, IconPlus, IconUpload, IconX } from '@tabler/icons-react'
 import { useState } from 'react'
 import { readArchive } from '../attachments/archive.ts'
 import type { AttachmentTree } from '../attachments/tree.ts'
@@ -73,21 +74,37 @@ export function AttachmentsPanel({ tree, onTreeChange, paths, onPathsChange }: P
             Files
           </Text>
           <Group gap="xs">
-            <Button size="xs" variant="default" disabled={!auth.token || !!loading} onClick={fromDriveFolder}>
+            <Button
+              variant="default"
+              leftSection={<IconBrandGoogleDrive size={16} />}
+              disabled={!auth.token || !!loading}
+              onClick={fromDriveFolder}
+            >
               Drive folder
             </Button>
-            <Button size="xs" variant="default" disabled={!auth.token || !!loading} onClick={fromDriveArchive}>
+            <Button
+              variant="default"
+              leftSection={<IconFileZip size={16} />}
+              disabled={!auth.token || !!loading}
+              onClick={fromDriveArchive}
+            >
               Archive from Drive
             </Button>
             <FileButton onChange={fromUpload} accept={ARCHIVE_ACCEPT}>
               {(props) => (
-                <Button size="xs" variant="default" disabled={!!loading} {...props}>
+                <Button variant="default" leftSection={<IconUpload size={16} />} disabled={!!loading} {...props}>
                   Upload archive
                 </Button>
               )}
             </FileButton>
             {import.meta.env.DEV && (
-              <Button size="xs" variant="light" color="grape" disabled={!!loading} onClick={fromSample}>
+              <Button
+                variant="light"
+                color="grape"
+                leftSection={<IconFlask size={16} />}
+                disabled={!!loading}
+                onClick={fromSample}
+              >
                 Use sample files
               </Button>
             )}
@@ -126,17 +143,23 @@ export function AttachmentsPanel({ tree, onTreeChange, paths, onPathsChange }: P
               />
               <ActionIcon
                 variant="subtle"
-                color="red"
+                color="gray"
                 aria-label={`Remove attachment path ${index + 1}`}
                 onClick={() => onPathsChange(paths.filter((_, i) => i !== index))}
               >
-                ✕
+                <IconX size={16} />
               </ActionIcon>
             </Group>
           ))}
           <Group>
-            <Button size="xs" variant="light" onClick={() => onPathsChange([...paths, ''])}>
-              + Add path
+            <Button
+              size="compact-sm"
+              variant="subtle"
+              color="gray"
+              leftSection={<IconPlus size={14} />}
+              onClick={() => onPathsChange([...paths, ''])}
+            >
+              Add path
             </Button>
           </Group>
           <Text size="xs" c="dimmed">

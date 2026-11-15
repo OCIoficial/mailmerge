@@ -10,6 +10,7 @@ import {
   useMantineColorScheme,
   type MantineColorScheme,
 } from '@mantine/core'
+import { IconLogout } from '@tabler/icons-react'
 import type { ReactNode } from 'react'
 import { useAuth } from '../google/AuthContext.tsx'
 import classes from './AppHeader.module.css'
@@ -157,7 +158,9 @@ export function AppHeader({ view, onViewChange, problemCount }: Props) {
                 {auth.email}
               </Text>
               <Menu.Divider />
-              <Menu.Item onClick={auth.signOut}>Sign out</Menu.Item>
+              <Menu.Item leftSection={<IconLogout size={16} />} onClick={auth.signOut}>
+                Sign out
+              </Menu.Item>
             </Menu.Dropdown>
           </Menu>
         ) : (

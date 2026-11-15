@@ -12,6 +12,8 @@ export interface Dataset {
   rows: Row[]
   /** Datos de ejemplo (solo desarrollo): no se pueden enviar. */
   sample?: boolean
+  /** Hoja de origen (ver sheetKey), para su configuración guardada. */
+  sheetKey?: string
 }
 
 /** "Correo Electrónico" → "correo_electronico" */

@@ -18,6 +18,7 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { ActionIcon, Button, Checkbox, Group, Popover, Select, Stack, Text, TextInput } from '@mantine/core'
 import { useReducedMotion } from '@mantine/hooks'
+import { IconCheck, IconTrash, IconX } from '@tabler/icons-react'
 import { useState } from 'react'
 import { newStep, replacePatternError, STEP_LABELS, type Step, type StepType } from '../merge/normalize.ts'
 import classes from './ColumnSteps.module.css'
@@ -103,8 +104,8 @@ function SortableStep({ id, step, animate, onChange, onRemove }: SortableStepPro
         <Text size="sm" style={{ flex: 1 }}>
           {label}
         </Text>
-        <ActionIcon size="sm" variant="subtle" color="red" aria-label={`Remove ${label}`} onClick={onRemove}>
-          ✕
+        <ActionIcon size="sm" variant="subtle" color="gray" aria-label={`Remove ${label}`} onClick={onRemove}>
+          <IconX size={14} />
         </ActionIcon>
       </Group>
       <StepFields step={step} onChange={onChange} />
@@ -212,10 +213,17 @@ export function ColumnSteps({ columnKey, steps, onChange }: Props) {
           />
 
           <Group justify="space-between">
-            <Button size="xs" variant="subtle" color="gray" disabled={steps.length === 0} onClick={() => onChange([])}>
+            <Button
+              size="compact-sm"
+              variant="subtle"
+              color="gray"
+              leftSection={<IconTrash size={14} />}
+              disabled={steps.length === 0}
+              onClick={() => onChange([])}
+            >
               Clear all
             </Button>
-            <Button size="xs" onClick={() => setOpened(false)}>
+            <Button size="compact-sm" leftSection={<IconCheck size={14} />} onClick={() => setOpened(false)}>
               Done
             </Button>
           </Group>

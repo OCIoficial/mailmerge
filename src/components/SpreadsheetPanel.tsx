@@ -1,10 +1,11 @@
 import { Badge, Button, Card, Checkbox, Group, Select, Stack, Text, Title } from '@mantine/core'
-import { useLocalStorage } from '@mantine/hooks'
+import { IconFlask, IconRefresh, IconTable } from '@tabler/icons-react'
 import { useState, type ReactNode } from 'react'
 import { getSheetValues, getSpreadsheet, type SpreadsheetInfo } from '../google/api.ts'
 import { useAuth } from '../google/AuthContext.tsx'
 import { pickSpreadsheet } from '../google/picker.ts'
 import { toDataset, type Dataset } from '../merge/dataset.ts'
+import { sheetKey, type SheetSettingsStore } from '../merge/sheetSettings.ts'
 import { Notice } from './Notice.tsx'
 
 interface LoadedSpreadsheet extends SpreadsheetInfo {
@@ -14,21 +15,18 @@ interface LoadedSpreadsheet extends SpreadsheetInfo {
 
 interface Props {
   onChange: (dataset: Dataset | null) => void
+  /** Configuración guardada por hoja (encabezado y normalización). */
+  settings: SheetSettingsStore
   /** Se muestra al final de la tarjeta (normalización y tabla de datos). */
   children?: ReactNode
 }
 
-export function SpreadsheetPanel({ onChange, children }: Props) {
+export function SpreadsheetPanel({ onChange, settings, children }: Props) {
   const auth = useAuth()
   const [spreadsheet, setSpreadsheet] = useState<LoadedSpreadsheet | null>(null)
   const [sheet, setSheet] = useState<string | null>(null)
   // Valores crudos de la hoja, para rearmar las filas al cambiar el checkbox sin volver a pedirlos.
   const [values, setValues] = useState<string[][] | null>(null)
-  const [hasHeader, setHasHeader] = useLocalStorage({
-    key: 'mail-merge:has-header',
-    defaultValue: false,
-    getInitialValueInEffect: false,
-  })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -47,8 +45,11 @@ export function SpreadsheetPanel({ onChange, children }: Props) {
     }
   }
 
-  function emit(info: LoadedSpreadsheet, next: string[][], header: boolean) {
-    onChange({ ...toDataset(next, header), sample: Boolean(info.sampleValues) })
+  const currentKey = spreadsheet && sheet ? sheetKey(spreadsheet.id, sheet) : null
+  const hasHeader = currentKey ? settings.settingsFor(currentKey).hasHeader : false
+
+  function emit(info: LoadedSpreadsheet, name: string, next: string[][], header: boolean) {
+    onChange({ ...toDataset(next, header), sample: Boolean(info.sampleValues), sheetKey: sheetKey(info.id, name) })
   }
 
   async function loadSheet(info: LoadedSpreadsheet, name: string) {
@@ -57,12 +58,14 @@ export function SpreadsheetPanel({ onChange, children }: Props) {
       : await auth.run((token) => getSheetValues(token, info.id, name))
     setSheet(name)
     setValues(next)
-    emit(info, next, hasHeader)
+    // Cada hoja recuerda si su primera fila es encabezado.
+    emit(info, name, next, settings.settingsFor(sheetKey(info.id, name)).hasHeader)
   }
 
   function changeHasHeader(next: boolean) {
-    setHasHeader(next)
-    if (spreadsheet && values) emit(spreadsheet, values, next)
+    if (!spreadsheet || !sheet || !currentKey) return
+    settings.update(currentKey, { hasHeader: next })
+    if (values) emit(spreadsheet, sheet, values, next)
   }
 
   const choose = () =>
@@ -93,22 +96,23 @@ export function SpreadsheetPanel({ onChange, children }: Props) {
       <Stack gap="sm">
         <Title order={4}>1. Spreadsheet</Title>
         <Group gap="sm">
-          <Button onClick={choose} loading={loading && !spreadsheet} disabled={!auth.token}>
+          <Button
+            leftSection={<IconTable size={16} />}
+            onClick={choose}
+            loading={loading && !spreadsheet}
+            disabled={!auth.token}
+          >
             {spreadsheet ? 'Change spreadsheet' : 'Choose spreadsheet'}
           </Button>
           {import.meta.env.DEV && (
-            <Button variant="light" color="grape" onClick={loadSample} disabled={loading}>
-              Use sample data
-            </Button>
-          )}
-          {spreadsheet && sheet && !isSample && (
             <Button
-              variant="default"
-              loading={loading}
-              disabled={!auth.token}
-              onClick={() => withLoading(() => loadSheet(spreadsheet, sheet))}
+              variant="light"
+              color="grape"
+              leftSection={<IconFlask size={16} />}
+              onClick={loadSample}
+              disabled={loading}
             >
-              Reload
+              Use sample data
             </Button>
           )}
         </Group>
@@ -126,6 +130,19 @@ export function SpreadsheetPanel({ onChange, children }: Props) {
                   Sample data
                 </Badge>
               )}
+              {sheet && !isSample && (
+                <Button
+                  size="compact-sm"
+                  variant="subtle"
+                  color="gray"
+                  leftSection={<IconRefresh size={14} />}
+                  loading={loading}
+                  disabled={!auth.token}
+                  onClick={() => withLoading(() => loadSheet(spreadsheet, sheet))}
+                >
+                  Reload
+                </Button>
+              )}
             </Group>
             <Select
               label="Sheet"
@@ -137,12 +154,15 @@ export function SpreadsheetPanel({ onChange, children }: Props) {
             />
           </>
         )}
-        <Checkbox
-          label="First row is a header"
-          description="Use the first row as variable names. Otherwise variables are the column letters: {{ A }}, {{ B }}..."
-          checked={hasHeader}
-          onChange={(event) => changeHasHeader(event.currentTarget.checked)}
-        />
+        {/* Por hoja: aparece cuando hay una hoja cargada. */}
+        {currentKey && (
+          <Checkbox
+            label="First row is a header"
+            description="Use the first row as variable names. Otherwise variables are the column letters: {{ A }}, {{ B }}..."
+            checked={hasHeader}
+            onChange={(event) => changeHasHeader(event.currentTarget.checked)}
+          />
+        )}
         {children}
         {error && (
           <Notice tone="error" title="Could not load the spreadsheet">
