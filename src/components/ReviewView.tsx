@@ -1,5 +1,19 @@
-import { Anchor, Checkbox, Grid, Group, Loader, ScrollArea, SegmentedControl, Stack, Text, UnstyledButton } from '@mantine/core'
+import {
+  ActionIcon,
+  Anchor,
+  Button,
+  Checkbox,
+  Grid,
+  Group,
+  Loader,
+  ScrollArea,
+  SegmentedControl,
+  Stack,
+  Text,
+  UnstyledButton,
+} from '@mantine/core'
 import { useReducedMotion } from '@mantine/hooks'
+import { IconArrowLeft, IconChevronLeft, IconChevronRight } from '@tabler/icons-react'
 import { useRef, useState, type ReactNode } from 'react'
 import type { ResolvedAttachment } from '../attachments/resolve.ts'
 import { formatSize } from '../attachments/tree.ts'
@@ -9,6 +23,7 @@ import { PROBLEM_LABELS, type RenderedEmail } from '../merge/render.ts'
 import { FIELD_LABELS } from '../merge/template.ts'
 import { Notice, WarningIcon } from './Notice.tsx'
 import classes from './ReviewView.module.css'
+import { useIsMobile } from '../useIsMobile.ts'
 
 interface Props {
   /** Todas las filas, también las excluidas (se muestran atenuadas). */
@@ -181,7 +196,10 @@ function EmailDetail({
         </Text>
       )}
       {count > 0 && (
-        <Notice tone="warning" title={count === 1 ? '1 thing to fix before sending' : `${count} things to fix before sending`}>
+        <Notice
+          tone="warning"
+          title={count === 1 ? '1 thing to fix before sending' : `${count} things to fix before sending`}
+        >
           <dl className={classes.problems}>
             {email.problems.map((problem, i) => (
               <div key={i} style={{ display: 'contents' }}>
@@ -224,12 +242,23 @@ function EmailDetail({
   )
 }
 
-export function ReviewView({ emails, excluded, onExcludedChange, templateErrors, problemCount, sendPanel, statuses }: Props) {
+export function ReviewView({
+  emails,
+  excluded,
+  onExcludedChange,
+  templateErrors,
+  problemCount,
+  sendPanel,
+  statuses,
+}: Props) {
   // Por defecto se muestra el primer correo como ejemplo.
   const [selected, setSelected] = useState(0)
   const [filter, setFilter] = useState<Filter>('all')
   const [device, setDevice] = useState<Device>('desktop')
   const reducedMotion = useReducedMotion()
+  const mobile = useIsMobile()
+  // En el teléfono no caben lista y vista previa juntas: tocar un correo abre su vista previa.
+  const [detailOpen, setDetailOpen] = useState(false)
 
   // Los problemas de filas excluidas no cuentan: no se envían.
   const included = emails.filter((email) => !excluded.has(email.index))
@@ -250,12 +279,80 @@ export function ReviewView({ emails, excluded, onExcludedChange, templateErrors,
   const allIncluded = included.length === emails.length
   const toggleAll = () => onExcludedChange(allIncluded ? new Set(emails.map((email) => email.index)) : new Set())
 
-  function select(index: number) {
-    setSelected(index)
+  const scrollToRow = (index: number) =>
     requestAnimationFrame(() =>
       document
         .getElementById(`email-${index}`)
         ?.scrollIntoView({ block: 'nearest', behavior: reducedMotion ? 'auto' : 'smooth' }),
+    )
+
+  function open(index: number) {
+    setSelected(index)
+    if (mobile) {
+      setDetailOpen(true)
+      window.scrollTo({ top: 0 })
+    }
+  }
+
+  function select(index: number) {
+    open(index)
+    if (!mobile) scrollToRow(index)
+  }
+
+  function closeDetail() {
+    setDetailOpen(false)
+    if (current) scrollToRow(current.index)
+  }
+
+  if (mobile && detailOpen && current) {
+    const position = visible.findIndex((email) => email.index === current.index)
+    const previous = visible[position - 1]
+    const next = visible[position + 1]
+    return (
+      <Stack gap="sm">
+        <Group justify="space-between" gap="xs" wrap="nowrap">
+          <Button variant="subtle" leftSection={<IconArrowLeft size={18} />} px="xs" onClick={closeDetail}>
+            All emails
+          </Button>
+          <Group gap={4} wrap="nowrap">
+            <ActionIcon
+              variant="default"
+              size="lg"
+              aria-label="Previous email"
+              disabled={!previous}
+              onClick={() => previous && open(previous.index)}
+            >
+              <IconChevronLeft size={18} />
+            </ActionIcon>
+            <Text size="sm" c="dimmed" miw={56} ta="center" style={{ fontVariantNumeric: 'tabular-nums' }}>
+              {position + 1} of {visible.length}
+            </Text>
+            <ActionIcon
+              variant="default"
+              size="lg"
+              aria-label="Next email"
+              disabled={!next}
+              onClick={() => next && open(next.index)}
+            >
+              <IconChevronRight size={18} />
+            </ActionIcon>
+          </Group>
+        </Group>
+        <Checkbox
+          label="Include this row"
+          checked={!excluded.has(current.index)}
+          onChange={(event) => toggleRow(current.index, event.currentTarget.checked, false)}
+        />
+        <div className={classes.detail}>
+          <EmailDetail
+            key={current.index}
+            email={current}
+            device="mobile"
+            status={statuses.get(current.index)}
+            excluded={excluded.has(current.index)}
+          />
+        </div>
+      </Stack>
     )
   }
 
@@ -273,6 +370,7 @@ export function ReviewView({ emails, excluded, onExcludedChange, templateErrors,
           ]}
         />
         <SegmentedControl
+          visibleFrom="sm"
           size="xs"
           aria-label="Body width"
           value={device}
@@ -294,8 +392,7 @@ export function ReviewView({ emails, excluded, onExcludedChange, templateErrors,
 
       {withProblems.length > 0 && (
         <Notice tone="warning">
-          {withProblems.length === 1 ? '1 email needs' : `${withProblems.length} emails need`} fixing before
-          sending:{' '}
+          {withProblems.length === 1 ? '1 email needs' : `${withProblems.length} emails need`} fixing before sending:{' '}
           {withProblems.map((email, i) => (
             <span key={email.index}>
               {i > 0 && ', '}
@@ -315,7 +412,11 @@ export function ReviewView({ emails, excluded, onExcludedChange, templateErrors,
         <Grid gap="md">
           <Grid.Col span={{ base: 12, md: 4 }}>
             <Stack gap="md">
-              <ScrollArea.Autosize mah="calc(100vh - 260px)" type="auto" offsetScrollbars="present">
+              <ScrollArea.Autosize
+                mah={mobile ? '60dvh' : 'calc(100vh - 260px)'}
+                type="auto"
+                offsetScrollbars="present"
+              >
                 <div className={classes.list}>
                   <div className={classes.listHeader}>
                     <Checkbox
@@ -344,13 +445,17 @@ export function ReviewView({ emails, excluded, onExcludedChange, templateErrors,
                           aria-label={`Include row ${email.index + 1}`}
                           checked={!isExcluded}
                           onChange={(event) =>
-                            toggleRow(email.index, event.currentTarget.checked, (event.nativeEvent as MouseEvent).shiftKey)
+                            toggleRow(
+                              email.index,
+                              event.currentTarget.checked,
+                              (event.nativeEvent as MouseEvent).shiftKey,
+                            )
                           }
                         />
                         <UnstyledButton
                           className={classes.itemButton}
                           aria-current={email.index === current?.index || undefined}
-                          onClick={() => setSelected(email.index)}
+                          onClick={() => open(email.index)}
                         >
                           <EmailRow email={email} status={statuses.get(email.index)} />
                         </UnstyledButton>
@@ -362,19 +467,21 @@ export function ReviewView({ emails, excluded, onExcludedChange, templateErrors,
               {sendPanel}
             </Stack>
           </Grid.Col>
-          <Grid.Col span={{ base: 12, md: 8 }}>
-            {current && (
-              <div className={classes.detail}>
-                <EmailDetail
-                  key={current.index}
-                  email={current}
-                  device={device}
-                  status={statuses.get(current.index)}
-                  excluded={excluded.has(current.index)}
-                />
-              </div>
-            )}
-          </Grid.Col>
+          {!mobile && (
+            <Grid.Col span={{ base: 12, md: 8 }}>
+              {current && (
+                <div className={classes.detail}>
+                  <EmailDetail
+                    key={current.index}
+                    email={current}
+                    device={device}
+                    status={statuses.get(current.index)}
+                    excluded={excluded.has(current.index)}
+                  />
+                </div>
+              )}
+            </Grid.Col>
+          )}
         </Grid>
       )}
     </Stack>

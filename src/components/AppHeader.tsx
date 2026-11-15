@@ -1,5 +1,7 @@
 import {
+  ActionIcon,
   Avatar,
+  Box,
   Group,
   Loader,
   Menu,
@@ -10,7 +12,7 @@ import {
   useMantineColorScheme,
   type MantineColorScheme,
 } from '@mantine/core'
-import { IconLogout } from '@tabler/icons-react'
+import { IconCheck, IconListCheck, IconLogout, IconPencil } from '@tabler/icons-react'
 import type { ReactNode } from 'react'
 import { useAuth } from '../google/AuthContext.tsx'
 import classes from './AppHeader.module.css'
@@ -65,7 +67,13 @@ function MergeMark() {
     <svg className={classes.mark} width="30" height="24" viewBox="0 0 30 24" fill="none" aria-hidden>
       <path d="M1 5c5 0 6 7 11 7M1 19c5 0 6-7 11-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
       <rect x="13" y="5" width="16" height="14" rx="2" fill="currentColor" />
-      <path d="M14.5 7l6.5 5 6.5-5" stroke="var(--mantine-color-body)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+      <path
+        d="M14.5 7l6.5 5 6.5-5"
+        stroke="var(--mantine-color-body)"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   )
 }
@@ -73,15 +81,63 @@ function MergeMark() {
 function GoogleLogo() {
   return (
     <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden>
-      <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
-      <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
-      <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
-      <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
+      <path
+        fill="#EA4335"
+        d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"
+      />
+      <path
+        fill="#4285F4"
+        d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"
+      />
+      <path
+        fill="#34A853"
+        d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"
+      />
     </svg>
   )
 }
 
 export type View = 'edit' | 'review'
+
+/** Ítems de tema para un Menu: en el teléfono el selector no cabe en el encabezado. */
+function ThemeMenuItems() {
+  const { colorScheme, setColorScheme } = useMantineColorScheme()
+  return (
+    <>
+      <Menu.Label>Theme</Menu.Label>
+      {COLOR_SCHEMES.map(({ value, label, icon }) => (
+        <Menu.Item
+          key={value}
+          leftSection={icon}
+          rightSection={colorScheme === value ? <IconCheck size={14} /> : null}
+          aria-checked={colorScheme === value}
+          role="menuitemradio"
+          onClick={() => setColorScheme(value)}
+        >
+          {label.replace(' theme', '')}
+        </Menu.Item>
+      ))}
+    </>
+  )
+}
+
+/** Conteo de correos con problemas, en línea con la etiqueta de Review. */
+function ReviewLabel({ problemCount }: { problemCount: number }) {
+  return (
+    <span className={classes.viewLabel}>
+      Review
+      {problemCount > 0 && (
+        <span className={classes.viewCounter} title={`${problemCount} emails need fixing`}>
+          {problemCount}
+        </span>
+      )}
+    </span>
+  )
+}
 
 interface Props {
   view: View
@@ -97,37 +153,27 @@ export function AppHeader({ view, onViewChange, problemCount }: Props) {
 
   return (
     <Group h="100%" px="md" justify="space-between" wrap="nowrap">
-      <div className={classes.wordmark}>
+      <div className={classes.wordmark} style={{ flex: 'none' }}>
         <MergeMark />
         <span className={classes.title}>Mail Merge</span>
       </div>
 
       {/* Segmentos de igual ancho; el conteo va en línea (como el Counter de GitHub), sin cambiar el ancho. */}
       <SegmentedControl
+        visibleFrom="sm"
         aria-label="View"
         classNames={{ control: classes.viewControl }}
         value={view}
         onChange={(value) => onViewChange(value as View)}
         data={[
           { value: 'edit', label: 'Edit' },
-          {
-            value: 'review',
-            label: (
-              <span className={classes.viewLabel}>
-                Review
-                {problemCount > 0 && (
-                  <span className={classes.viewCounter} title={`${problemCount} emails need fixing`}>
-                    {problemCount}
-                  </span>
-                )}
-              </span>
-            ),
-          },
+          { value: 'review', label: <ReviewLabel problemCount={problemCount} /> },
         ]}
       />
 
-      <Group gap="md" wrap="nowrap">
+      <Group gap="sm" wrap="nowrap">
         <SegmentedControl
+          visibleFrom="sm"
           size="xs"
           radius="xl"
           aria-label="Color theme"
@@ -157,6 +203,10 @@ export function AppHeader({ view, onViewChange, problemCount }: Props) {
               <Text size="sm" px="sm" pb="xs" truncate>
                 {auth.email}
               </Text>
+              <Box hiddenFrom="sm">
+                <Menu.Divider />
+                <ThemeMenuItems />
+              </Box>
               <Menu.Divider />
               <Menu.Item leftSection={<IconLogout size={16} />} onClick={auth.signOut}>
                 Sign out
@@ -164,19 +214,68 @@ export function AppHeader({ view, onViewChange, problemCount }: Props) {
             </Menu.Dropdown>
           </Menu>
         ) : (
-          <UnstyledButton
-            className={classes.google}
-            onClick={auth.signIn}
-            disabled={auth.connecting}
-            data-disabled={auth.connecting || undefined}
-          >
-            <Group gap={10} wrap="nowrap">
-              {auth.connecting ? <Loader size={16} /> : <GoogleLogo />}
-              <span>Sign in with Google</span>
-            </Group>
-          </UnstyledButton>
+          <>
+            <Menu position="bottom-end" width={200} withinPortal>
+              <Menu.Target>
+                <ActionIcon hiddenFrom="sm" variant="default" radius="xl" size={36} aria-label="Color theme">
+                  {COLOR_SCHEMES.find((scheme) => scheme.value === colorScheme)?.icon}
+                </ActionIcon>
+              </Menu.Target>
+              <Menu.Dropdown>
+                <ThemeMenuItems />
+              </Menu.Dropdown>
+            </Menu>
+            <UnstyledButton
+              className={classes.google}
+              onClick={auth.signIn}
+              disabled={auth.connecting}
+              data-disabled={auth.connecting || undefined}
+            >
+              <Group gap={10} wrap="nowrap">
+                {auth.connecting ? <Loader size={16} /> : <GoogleLogo />}
+                {/* En el teléfono basta "Sign in": el logo de Google ya dice con qué cuenta. */}
+                <Box component="span" visibleFrom="sm">
+                  Sign in with Google
+                </Box>
+                <Box component="span" hiddenFrom="sm">
+                  Sign in
+                </Box>
+              </Group>
+            </UnstyledButton>
+          </>
         )}
       </Group>
     </Group>
+  )
+}
+
+/**
+ * Barra inferior del teléfono: Edit y Review quedan al alcance del pulgar,
+ * en vez de apretados en el encabezado.
+ */
+export function BottomNav({ view, onViewChange, problemCount }: Props) {
+  const tabs: { value: View; label: ReactNode; icon: ReactNode }[] = [
+    { value: 'edit', label: 'Edit', icon: <IconPencil size={22} stroke={1.75} /> },
+    {
+      value: 'review',
+      label: <ReviewLabel problemCount={problemCount} />,
+      icon: <IconListCheck size={22} stroke={1.75} />,
+    },
+  ]
+  return (
+    <nav className={classes.bottomNav} aria-label="View">
+      {tabs.map((tab) => (
+        <UnstyledButton
+          key={tab.value}
+          className={classes.bottomTab}
+          aria-current={view === tab.value ? 'page' : undefined}
+          data-active={view === tab.value || undefined}
+          onClick={() => onViewChange(tab.value)}
+        >
+          <span className={classes.bottomIcon}>{tab.icon}</span>
+          <span className={classes.bottomLabel}>{tab.label}</span>
+        </UnstyledButton>
+      ))}
+    </nav>
   )
 }

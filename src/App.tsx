@@ -1,7 +1,7 @@
 import { AppShell, Grid, Stack } from '@mantine/core'
 import { useLocalStorage } from '@mantine/hooks'
 import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react'
-import { AppHeader, type View } from './components/AppHeader.tsx'
+import { AppHeader, BottomNav, type View } from './components/AppHeader.tsx'
 import type { AttachmentTree } from './attachments/tree.ts'
 import { AttachmentsPanel } from './components/AttachmentsPanel.tsx'
 import { NormalizedData } from './components/NormalizedData.tsx'
@@ -18,12 +18,14 @@ import { DEFAULT_SHEET_SETTINGS, useSheetSettings } from './merge/sheetSettings.
 import { compileTemplate, renderEmail } from './merge/render.ts'
 import { EMPTY_TEMPLATE, type EmailTemplate } from './merge/template.ts'
 import { Notice } from './components/Notice.tsx'
+import { useIsMobile } from './useIsMobile.ts'
 
 /** La vista se guarda en la URL (#review), para que recargar deje al usuario donde estaba. */
 const viewFromHash = (): View => (window.location.hash === '#review' ? 'review' : 'edit')
 
 function App() {
   const auth = useAuth()
+  const mobile = useIsMobile()
   const [view, setView] = useState<View>(viewFromHash)
   useEffect(() => {
     const sync = () => setView(viewFromHash())
@@ -35,6 +37,8 @@ function App() {
     if (next === 'review') window.location.hash = 'review'
     else history.pushState(null, '', window.location.pathname + window.location.search)
     setView(next)
+    // Cada vista empieza arriba; si no, Review hereda el scroll de Edit.
+    window.scrollTo({ top: 0 })
   }
   const [dataset, setDataset] = useState<Dataset | null>(null)
   // Árbol de archivos para los adjuntos; no se guarda entre sesiones.
@@ -93,14 +97,16 @@ function App() {
   const compiled = useMemo(() => compileTemplate(deferredTemplate), [deferredTemplate])
   // Todas las filas (Review también muestra las excluidas); se envían solo las incluidas.
   const allEmails = useMemo(
-    () => (compiled.errors.length > 0 ? [] : (normalized?.rows ?? []).map((row, i) => renderEmail(compiled, row, i, tree))),
+    () =>
+      compiled.errors.length > 0 ? [] : (normalized?.rows ?? []).map((row, i) => renderEmail(compiled, row, i, tree)),
     [compiled, normalized, tree],
   )
   const emails = useMemo(() => allEmails.filter((email) => !excluded.has(email.index)), [allEmails, excluded])
   const problemCount = emails.filter((email) => email.problems.length > 0).length
 
   return (
-    <AppShell header={{ height: 60 }} padding="md">
+    // En el teléfono, Edit y Review pasan del encabezado a una barra inferior.
+    <AppShell header={{ height: 60 }} footer={{ height: 64, collapsed: !mobile }} padding="md">
       <AppShell.Header>
         <AppHeader view={view} onViewChange={changeView} problemCount={problemCount} />
       </AppShell.Header>
@@ -120,7 +126,7 @@ function App() {
           <div hidden={view !== 'edit'}>
             {/* Las columnas se estiran al mismo alto, así las bases de Spreadsheet y Attachments quedan alineadas. */}
             <Grid gap="md">
-              <Grid.Col span={{ base: 12, lg: 7 }}>
+              <Grid.Col span={{ base: 12, md: 7 }}>
                 <SpreadsheetPanel onChange={changeDataset} settings={sheetSettings}>
                   {normalized && (
                     <NormalizedData
@@ -133,7 +139,7 @@ function App() {
                   )}
                 </SpreadsheetPanel>
               </Grid.Col>
-              <Grid.Col span={{ base: 12, lg: 5 }}>
+              <Grid.Col span={{ base: 12, md: 5 }}>
                 <Stack gap="md" h="100%">
                   <TemplateEditor template={template} columns={dataset?.columns ?? []} onChange={updateTemplate} />
                   <div style={{ flex: 1 }}>
@@ -162,6 +168,11 @@ function App() {
           )}
         </Stack>
       </AppShell.Main>
+      {mobile && (
+        <AppShell.Footer>
+          <BottomNav view={view} onViewChange={changeView} problemCount={problemCount} />
+        </AppShell.Footer>
+      )}
     </AppShell>
   )
 }

@@ -90,3 +90,50 @@
   text-align: center;
   font-variant-numeric: tabular-nums;
 }
+
+/* --- Barra inferior (teléfono) ------------------------------------------- */
+
+.bottomNav {
+  display: flex;
+  height: 100%;
+}
+
+.bottomTab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  color: var(--mantine-color-dimmed);
+}
+
+.bottomTab[data-active] {
+  color: var(--mantine-color-text);
+}
+
+.bottomTab:focus-visible {
+  outline: 2px solid var(--mantine-primary-color-filled);
+  outline-offset: -4px;
+}
+
+/* Píldora detrás del ícono activo, como en la navegación inferior de Material 3. */
+.bottomIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 30px;
+  border-radius: 15px;
+}
+
+.bottomTab[data-active] .bottomIcon {
+  background: var(--mantine-primary-color-light);
+  color: var(--mantine-primary-color-light-color);
+}
+
+.bottomLabel {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 18px;
+}
