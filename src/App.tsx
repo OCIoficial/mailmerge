@@ -1,12 +1,13 @@
 import { AppShell, Grid, Stack } from '@mantine/core'
-import { useLocalStorage } from '@mantine/hooks'
+import { useElementSize, useLocalStorage } from '@mantine/hooks'
 import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react'
 import { AppHeader, BottomNav, type View } from './components/AppHeader.tsx'
 import type { AttachmentTree } from './attachments/tree.ts'
 import { AttachmentsPanel } from './components/AttachmentsPanel.tsx'
 import { NormalizedData } from './components/NormalizedData.tsx'
 import { ReviewView } from './components/ReviewView.tsx'
-import { SendPanel } from './components/SendPanel.tsx'
+import { SendBar, SendConfirmModal, SendPanel } from './components/SendPanel.tsx'
+import { useSendControls } from './mail/useSendControls.ts'
 import { useSender } from './mail/useSender.ts'
 import { SpreadsheetPanel } from './components/SpreadsheetPanel.tsx'
 import { TemplateEditor } from './components/TemplateEditor.tsx'
@@ -103,10 +104,16 @@ function App() {
   )
   const emails = useMemo(() => allEmails.filter((email) => !excluded.has(email.index)), [allEmails, excluded])
   const problemCount = emails.filter((email) => email.problems.length > 0).length
+  const send = useSendControls(emails, sender, Boolean(dataset?.sample))
+
+  // En el teléfono, Review fija Test y Send sobre las pestañas; el pie crece con la barra.
+  const showSendBar = mobile && view === 'review' && allEmails.length > 0
+  const { ref: sendBarRef, height: sendBarHeight } = useElementSize()
+  const footerHeight = 64 + (showSendBar ? Math.ceil(sendBarHeight) : 0)
 
   return (
     // En el teléfono, Edit y Review pasan del encabezado a una barra inferior.
-    <AppShell header={{ height: 60 }} footer={{ height: 64, collapsed: !mobile }} padding="md">
+    <AppShell header={{ height: 60 }} footer={{ height: footerHeight, collapsed: !mobile }} padding="md">
       <AppShell.Header>
         <AppHeader view={view} onViewChange={changeView} problemCount={problemCount} />
       </AppShell.Header>
@@ -163,16 +170,22 @@ function App() {
               templateErrors={compiled.errors}
               problemCount={problemCount}
               statuses={sender.statuses}
-              sendPanel={<SendPanel emails={emails} sender={sender} sample={Boolean(dataset?.sample)} />}
+              sendPanel={<SendPanel controls={send} compact={mobile} />}
             />
           )}
         </Stack>
       </AppShell.Main>
       {mobile && (
         <AppShell.Footer>
+          {showSendBar && (
+            <div ref={sendBarRef}>
+              <SendBar controls={send} />
+            </div>
+          )}
           <BottomNav view={view} onViewChange={changeView} problemCount={problemCount} />
         </AppShell.Footer>
       )}
+      <SendConfirmModal controls={send} />
     </AppShell>
   )
 }

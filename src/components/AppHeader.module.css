@@ -95,7 +95,7 @@
 
 .bottomNav {
   display: flex;
-  height: 100%;
+  height: 64px;
 }
 
 .bottomTab {
