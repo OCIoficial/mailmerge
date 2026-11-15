@@ -1,5 +1,6 @@
 import { Badge, Checkbox, Group, Stack, Table, Text } from '@mantine/core'
 import { useRef } from 'react'
+import { rangeBetween, setIncluded } from '../merge/exclusion.ts'
 import { STEP_LABELS, type Normalization, type NormalizedDataset, type Step } from '../merge/normalize.ts'
 import { ColumnSteps } from './ColumnSteps.tsx'
 
@@ -20,15 +21,9 @@ export function DataTable({ dataset, normalization, showOriginal, onColumnStepsC
   const lastClicked = useRef<number | null>(null)
 
   function toggleRow(index: number, include: boolean, range: boolean) {
-    const next = new Set(excluded)
-    const from = range && lastClicked.current !== null ? Math.min(lastClicked.current, index) : index
-    const to = range && lastClicked.current !== null ? Math.max(lastClicked.current, index) : index
-    for (let i = from; i <= to; i++) {
-      if (include) next.delete(i)
-      else next.add(i)
-    }
+    const order = rows.map((_, i) => i)
+    onExcludedChange(setIncluded(excluded, range ? rangeBetween(order, lastClicked.current, index) : [index], include))
     lastClicked.current = index
-    onExcludedChange(next)
   }
 
   const includedCount = rows.length - excluded.size

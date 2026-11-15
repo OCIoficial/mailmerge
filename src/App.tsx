@@ -99,10 +99,12 @@ function App() {
   // El render de todas las filas no bloquea la escritura en el editor.
   const deferredTemplate = useDeferredValue(template)
   const compiled = useMemo(() => compileTemplate(deferredTemplate), [deferredTemplate])
-  const emails = useMemo(
-    () => (compiled.errors.length > 0 ? [] : (normalized?.rows ?? []).flatMap((row, i) => (excluded.has(i) ? [] : [renderEmail(compiled, row, i, tree)]))),
-    [compiled, normalized, tree, excluded],
+  // Todas las filas (Review también muestra las excluidas); se envían solo las incluidas.
+  const allEmails = useMemo(
+    () => (compiled.errors.length > 0 ? [] : (normalized?.rows ?? []).map((row, i) => renderEmail(compiled, row, i, tree))),
+    [compiled, normalized, tree],
   )
+  const emails = useMemo(() => allEmails.filter((email) => !excluded.has(email.index)), [allEmails, excluded])
   const problemCount = emails.filter((email) => email.problems.length > 0).length
 
   return (
@@ -157,7 +159,9 @@ function App() {
           {view === 'review' && (
             <ReviewView
               key={datasetVersion}
-              emails={emails}
+              emails={allEmails}
+              excluded={excluded}
+              onExcludedChange={setExcluded}
               templateErrors={compiled.errors}
               problemCount={problemCount}
               statuses={sender.statuses}

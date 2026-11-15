@@ -8,9 +8,20 @@
   overflow: hidden;
 }
 
+.listHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--mantine-color-default-border);
+  background: var(--mantine-color-default-hover);
+}
+
 .item {
-  display: block;
-  padding: 8px 10px 8px 0;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding-left: 7px;
   border-bottom: 1px solid var(--mantine-color-default-border);
   /* Marca de selección a la izquierda; transparente si no está seleccionado. */
   border-left: 3px solid transparent;
@@ -29,7 +40,18 @@
   background: var(--mantine-primary-color-light);
 }
 
-.item:focus-visible {
+/* Excluida: el contenido atenuado, la casilla no, para que se vea cómo volver a incluirla. */
+.item[data-excluded] .itemButton {
+  opacity: 0.45;
+}
+
+.itemButton {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px 8px 0;
+}
+
+.itemButton:focus-visible {
   outline: 2px solid var(--mantine-primary-color-filled);
   outline-offset: -2px;
 }

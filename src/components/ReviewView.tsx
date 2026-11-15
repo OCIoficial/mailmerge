@@ -1,16 +1,21 @@
-import { Anchor, Grid, Group, Loader, ScrollArea, SegmentedControl, Stack, Text, UnstyledButton } from '@mantine/core'
+import { Anchor, Checkbox, Grid, Group, Loader, ScrollArea, SegmentedControl, Stack, Text, UnstyledButton } from '@mantine/core'
 import { useReducedMotion } from '@mantine/hooks'
-import { useState, type ReactNode } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
 import type { ResolvedAttachment } from '../attachments/resolve.ts'
 import { formatSize } from '../attachments/tree.ts'
 import type { SendStatus } from '../mail/useSender.ts'
+import { rangeBetween, setIncluded } from '../merge/exclusion.ts'
 import { PROBLEM_LABELS, type RenderedEmail } from '../merge/render.ts'
 import { FIELD_LABELS } from '../merge/template.ts'
 import { Notice, WarningIcon } from './Notice.tsx'
 import classes from './ReviewView.module.css'
 
 interface Props {
+  /** Todas las filas, también las excluidas (se muestran atenuadas). */
   emails: RenderedEmail[]
+  /** Filas que no se envían; compartido con la tabla de Edit. */
+  excluded: Set<number>
+  onExcludedChange: (excluded: Set<number>) => void
   templateErrors: string[]
   problemCount: number
   /** Panel de envío, debajo de la lista. */
@@ -142,7 +147,17 @@ function EmailRow({ email, status }: { email: RenderedEmail; status?: SendStatus
   )
 }
 
-function EmailDetail({ email, device, status }: { email: RenderedEmail; device: Device; status?: SendStatus }) {
+function EmailDetail({
+  email,
+  device,
+  status,
+  excluded,
+}: {
+  email: RenderedEmail
+  device: Device
+  status?: SendStatus
+  excluded: boolean
+}) {
   const problemsByField = new Map<string, string[]>()
   for (const problem of email.problems) {
     problemsByField.set(problem.field, [...(problemsByField.get(problem.field) ?? []), problem.message])
@@ -150,6 +165,11 @@ function EmailDetail({ email, device, status }: { email: RenderedEmail; device: 
   const count = email.problems.length
   return (
     <Stack gap="sm">
+      {excluded && (
+        <Text size="sm" c="dimmed">
+          This row is excluded and won't be sent. Check it in the list to include it.
+        </Text>
+      )}
       {status?.state === 'failed' && (
         <Notice tone="error" title="Not sent">
           {status.error}
@@ -198,18 +218,31 @@ function EmailDetail({ email, device, status }: { email: RenderedEmail; device: 
   )
 }
 
-export function ReviewView({ emails, templateErrors, problemCount, sendPanel, statuses }: Props) {
+export function ReviewView({ emails, excluded, onExcludedChange, templateErrors, problemCount, sendPanel, statuses }: Props) {
   // Por defecto se muestra el primer correo como ejemplo.
   const [selected, setSelected] = useState(0)
   const [filter, setFilter] = useState<Filter>('all')
   const [device, setDevice] = useState<Device>('desktop')
   const reducedMotion = useReducedMotion()
 
-  const withProblems = emails.filter((email) => email.problems.length > 0)
+  // Los problemas de filas excluidas no cuentan: no se envían.
+  const included = emails.filter((email) => !excluded.has(email.index))
+  const withProblems = included.filter((email) => email.problems.length > 0)
+  const lastClicked = useRef<number | null>(null)
   // Si ya no quedan problemas, el filtro vuelve solo a "All".
   const activeFilter: Filter = withProblems.length === 0 ? 'all' : filter
   const visible = activeFilter === 'problems' ? withProblems : emails
   const current = emails.find((email) => email.index === selected) ?? visible[0]
+
+  function toggleRow(index: number, include: boolean, range: boolean) {
+    const order = visible.map((email) => email.index)
+    onExcludedChange(setIncluded(excluded, range ? rangeBetween(order, lastClicked.current, index) : [index], include))
+    lastClicked.current = index
+  }
+
+  // En estado intermedio, un clic incluye todas, igual que en la tabla de Edit.
+  const allIncluded = included.length === emails.length
+  const toggleAll = () => onExcludedChange(allIncluded ? new Set(emails.map((email) => email.index)) : new Set())
 
   function select(index: number) {
     setSelected(index)
@@ -277,20 +310,47 @@ export function ReviewView({ emails, templateErrors, problemCount, sendPanel, st
           <Grid.Col span={{ base: 12, md: 4 }}>
             <Stack gap="md">
               <ScrollArea.Autosize mah="calc(100vh - 260px)" type="auto" offsetScrollbars="present">
-                <div className={classes.list} role="listbox" aria-label="Emails">
-                  {visible.map((email) => (
-                    <UnstyledButton
-                      key={email.index}
-                      id={`email-${email.index}`}
-                      className={classes.item}
-                      role="option"
-                      aria-selected={email.index === current?.index}
-                      data-selected={email.index === current?.index || undefined}
-                      onClick={() => setSelected(email.index)}
-                    >
-                      <EmailRow email={email} status={statuses.get(email.index)} />
-                    </UnstyledButton>
-                  ))}
+                <div className={classes.list}>
+                  <div className={classes.listHeader}>
+                    <Checkbox
+                      size="xs"
+                      aria-label="Include all rows"
+                      checked={emails.length > 0 && allIncluded}
+                      indeterminate={included.length > 0 && !allIncluded}
+                      onChange={toggleAll}
+                    />
+                    <Text size="xs" c="dimmed">
+                      {allIncluded ? `${emails.length} rows` : `${included.length} of ${emails.length} rows included`}
+                    </Text>
+                  </div>
+                  {visible.map((email) => {
+                    const isExcluded = excluded.has(email.index)
+                    return (
+                      <div
+                        key={email.index}
+                        id={`email-${email.index}`}
+                        className={classes.item}
+                        data-selected={email.index === current?.index || undefined}
+                        data-excluded={isExcluded || undefined}
+                      >
+                        <Checkbox
+                          size="xs"
+                          aria-label={`Include row ${email.index + 1}`}
+                          checked={!isExcluded}
+                          onChange={(event) =>
+                            toggleRow(email.index, event.currentTarget.checked, (event.nativeEvent as MouseEvent).shiftKey)
+                          }
+                        />
+                        <UnstyledButton
+                          className={classes.itemButton}
+                          aria-current={email.index === current?.index || undefined}
+                          onClick={() => setSelected(email.index)}
+                        >
+                          <EmailRow email={email} status={statuses.get(email.index)} />
+                        </UnstyledButton>
+                      </div>
+                    )
+                  })}
                 </div>
               </ScrollArea.Autosize>
               {sendPanel}
@@ -299,7 +359,13 @@ export function ReviewView({ emails, templateErrors, problemCount, sendPanel, st
           <Grid.Col span={{ base: 12, md: 8 }}>
             {current && (
               <div className={classes.detail}>
-                <EmailDetail key={current.index} email={current} device={device} status={statuses.get(current.index)} />
+                <EmailDetail
+                  key={current.index}
+                  email={current}
+                  device={device}
+                  status={statuses.get(current.index)}
+                  excluded={excluded.has(current.index)}
+                />
               </div>
             )}
           </Grid.Col>
