@@ -64,7 +64,8 @@ Todos estos valores son **públicos por diseño** y van incluidos en el bundle:
 | `VITE_GOOGLE_API_KEY` | API key para Google Picker | Restringida por *HTTP referrer* a los orígenes de la app más `https://docs.google.com/*` (el Picker se muestra en un iframe de ese dominio) y solo a la **Google Picker API** |
 | `VITE_GOOGLE_APP_ID` | Número del proyecto de Cloud (para Picker `setAppId`) | Ninguna (identificador público) |
 
-- Se definen en un archivo `.env` para no dejarlos escritos en el código y poder cambiarlos con facilidad,
+- En desarrollo se definen en `.env.local` (no versionado; plantilla en `.env.example`) y en el
+  deploy como *Variables* del repositorio en GitHub Actions, para no dejarlos escritos en el código y poder cambiarlos con facilidad,
   no para ocultarlos.
 - **Nunca** se genera ni se incluye un *client secret* en el repositorio ni en el frontend.
 
@@ -73,7 +74,8 @@ Todos estos valores son **públicos por diseño** y van incluidos en el bundle:
 Configurados en el OAuth Client ID y en las restricciones de la API key:
 
 - `http://localhost:5173` (desarrollo)
-- URL del hosting estático donde se publique la app (por definir)
+- `https://<usuario>.github.io` (GitHub Pages). En el OAuth Client ID va solo el origen; en la
+  API key, `https://<usuario>.github.io/<repo>/*`
 
 Los orígenes deben usar HTTPS; `localhost` es la única excepción. Google rechaza las
 solicitudes de autorización desde cualquier otro origen (error `origin_mismatch`).
