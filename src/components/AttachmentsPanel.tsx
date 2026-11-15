@@ -1,4 +1,16 @@
-import { ActionIcon, Button, Card, Checkbox, FileButton, Group, Stack, Text, TextInput, Title } from '@mantine/core'
+import {
+  ActionIcon,
+  Button,
+  Card,
+  Checkbox,
+  FileButton,
+  Group,
+  SimpleGrid,
+  Stack,
+  Text,
+  TextInput,
+  Title,
+} from '@mantine/core'
 import { HelpPopover, HelpRows, HelpSection } from './HelpPopover.tsx'
 import { IconBrandGoogleDrive, IconFileZip, IconFlask, IconPlus, IconUpload, IconX } from '@tabler/icons-react'
 import { useState } from 'react'
@@ -76,42 +88,56 @@ export function AttachmentsPanel({ tree, onTreeChange, paths, onPathsChange }: P
           <Text size="sm" fw={500}>
             Files
           </Text>
-          <Group gap="xs">
-            <Button
-              variant="default"
-              leftSection={<IconBrandGoogleDrive size={16} />}
-              disabled={!auth.token || !!loading}
-              onClick={fromDriveFolder}
-            >
-              Drive folder
-            </Button>
-            <Button
-              variant="default"
-              leftSection={<IconFileZip size={16} />}
-              disabled={!auth.token || !!loading}
-              onClick={fromDriveArchive}
-            >
-              Archive from Drive
-            </Button>
-            <FileButton onChange={fromUpload} accept={ARCHIVE_ACCEPT}>
-              {(props) => (
-                <Button variant="default" leftSection={<IconUpload size={16} />} disabled={!!loading} {...props}>
-                  Upload archive
-                </Button>
-              )}
-            </FileButton>
-            {import.meta.env.DEV && (
+          {/* Tres opciones equivalentes: mismo ancho. Se decide por el ancho de la tarjeta, no de la
+              pantalla, porque en dos columnas la tarjeta es angosta. */}
+          <div style={{ containerType: 'inline-size' }}>
+            <SimpleGrid type="container" cols={{ base: 1, '500px': 3 }} spacing="xs">
               <Button
-                variant="light"
-                color="grape"
-                leftSection={<IconFlask size={16} />}
-                disabled={!!loading}
-                onClick={fromSample}
+                variant="default"
+                fullWidth
+                leftSection={<IconBrandGoogleDrive size={16} />}
+                disabled={!auth.token || !!loading}
+                onClick={fromDriveFolder}
               >
-                Use sample files
+                Drive folder
               </Button>
-            )}
-          </Group>
+              <Button
+                variant="default"
+                fullWidth
+                leftSection={<IconFileZip size={16} />}
+                disabled={!auth.token || !!loading}
+                onClick={fromDriveArchive}
+              >
+                Drive archive
+              </Button>
+              <FileButton onChange={fromUpload} accept={ARCHIVE_ACCEPT}>
+                {(props) => (
+                  <Button
+                    variant="default"
+                    fullWidth
+                    leftSection={<IconUpload size={16} />}
+                    disabled={!!loading}
+                    {...props}
+                  >
+                    Upload archive
+                  </Button>
+                )}
+              </FileButton>
+            </SimpleGrid>
+          </div>
+          {/* Solo en desarrollo; aparte, para no mezclarlo con las fuentes reales. */}
+          {import.meta.env.DEV && (
+            <Button
+              variant="light"
+              fullWidth
+              color="grape"
+              leftSection={<IconFlask size={16} />}
+              disabled={!!loading}
+              onClick={fromSample}
+            >
+              Use sample files
+            </Button>
+          )}
           {/* Ayuda para elegir la fuente; con archivos cargados, el árbol ya lo muestra. */}
           {!tree && (
             <Text size="xs" c="dimmed">
