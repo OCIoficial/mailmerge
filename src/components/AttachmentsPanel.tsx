@@ -1,8 +1,9 @@
-import { ActionIcon, Button, Card, FileButton, Group, Stack, Text, TextInput, Title } from '@mantine/core'
+import { ActionIcon, Button, Card, Checkbox, FileButton, Group, Stack, Text, TextInput, Title } from '@mantine/core'
 import { IconBrandGoogleDrive, IconFileZip, IconFlask, IconPlus, IconUpload, IconX } from '@tabler/icons-react'
 import { useState } from 'react'
 import { readArchive } from '../attachments/archive.ts'
 import type { AttachmentTree } from '../attachments/tree.ts'
+import type { AttachmentPath } from '../merge/template.ts'
 import { useAuth } from '../google/AuthContext.tsx'
 import { downloadDriveFile, loadDriveTree } from '../google/drive.ts'
 import { pickArchive, pickFolder } from '../google/picker.ts'
@@ -14,8 +15,8 @@ const ARCHIVE_ACCEPT = '.zip,.tar,.tgz,.gz,application/zip,application/x-tar,app
 interface Props {
   tree: AttachmentTree | null
   onTreeChange: (tree: AttachmentTree | null) => void
-  paths: string[]
-  onPathsChange: (paths: string[]) => void
+  paths: AttachmentPath[]
+  onPathsChange: (paths: AttachmentPath[]) => void
 }
 
 export function AttachmentsPanel({ tree, onTreeChange, paths, onPathsChange }: Props) {
@@ -62,7 +63,8 @@ export function AttachmentsPanel({ tree, onTreeChange, paths, onPathsChange }: P
       return sampleFiles()
     })
 
-  const updatePath = (index: number, value: string) => onPathsChange(paths.map((p, i) => (i === index ? value : p)))
+  const updatePath = (index: number, patch: Partial<AttachmentPath>) =>
+    onPathsChange(paths.map((p, i) => (i === index ? { ...p, ...patch } : p)))
 
   return (
     <Card withBorder h="100%">
@@ -131,15 +133,26 @@ export function AttachmentsPanel({ tree, onTreeChange, paths, onPathsChange }: P
           <Text size="sm" fw={500}>
             Attachment paths
           </Text>
-          {paths.map((path, index) => (
-            <Group key={index} gap={6} wrap="nowrap">
+          {paths.map(({ path, required }, index) => (
+            <Group key={index} gap={8} wrap="nowrap">
               <TextInput
                 style={{ flex: 1 }}
                 ff="monospace"
                 placeholder="Alumnos/{{ rut }}/*.pdf"
                 aria-label={`Attachment path ${index + 1}`}
                 value={path}
-                onChange={(event) => updatePath(index, event.currentTarget.value)}
+                onChange={(event) => updatePath(index, { path: event.currentTarget.value })}
+              />
+              <Checkbox
+                size="xs"
+                label="Required"
+                title={
+                  required
+                    ? 'If the file is missing, the email is marked as needing fixing.'
+                    : 'If the file is missing, the email is sent without it.'
+                }
+                checked={required}
+                onChange={(event) => updatePath(index, { required: event.currentTarget.checked })}
               />
               <ActionIcon
                 variant="subtle"
@@ -157,14 +170,15 @@ export function AttachmentsPanel({ tree, onTreeChange, paths, onPathsChange }: P
               variant="subtle"
               color="gray"
               leftSection={<IconPlus size={14} />}
-              onClick={() => onPathsChange([...paths, ''])}
+              onClick={() => onPathsChange([...paths, { path: '', required: true }])}
             >
               Add path
             </Button>
           </Group>
           <Text size="xs" c="dimmed">
             Paths can use template variables. <code>*</code> matches any characters in a name, <code>**</code> any
-            number of folders. Matching is exact, including case and accents. A folder is attached as a ZIP.
+            number of folders. Matching is exact, including case and accents. A folder is attached as a ZIP. If a path
+            isn't required and nothing matches, the email is sent without that attachment.
           </Text>
         </Stack>
       </Stack>

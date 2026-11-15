@@ -129,16 +129,9 @@ export function ColumnSteps({ columnKey, steps, onChange }: Props) {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   )
 
-  const ids = steps.map((step, index) => step.id ?? `step-${index}`)
+  const ids = steps.map((step) => step.id)
   const update = (index: number, step: Step) => onChange(steps.map((s, i) => (i === index ? step : s)))
 
-  function open() {
-    // Los pasos guardados antes de existir el id lo reciben al abrir, para poder reordenarlos.
-    if (steps.some((step) => !step.id)) {
-      onChange(steps.map((step) => (step.id ? step : { ...step, id: crypto.randomUUID() })))
-    }
-    setOpened((o) => !o)
-  }
 
   function handleDragEnd({ active, over }: DragEndEvent) {
     setDragging(false)
@@ -163,7 +156,7 @@ export function ColumnSteps({ columnKey, steps, onChange }: Props) {
           color={steps.length > 0 ? undefined : 'gray'}
           size="sm"
           aria-label={`Normalize ${columnKey}`}
-          onClick={open}
+          onClick={() => setOpened((o) => !o)}
         >
           <GearIcon />
         </ActionIcon>

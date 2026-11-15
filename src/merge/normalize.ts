@@ -1,7 +1,7 @@
 import type { Dataset, Row } from './dataset.ts'
 
-/** `id` identifica el paso al reordenarlo; los pasos guardados antes de existir no lo tienen. */
-export type Step = { id?: string } & (
+/** `id` identifica el paso al reordenarlo. */
+export type Step = { id: string } & (
   | { type: 'trim' }
   | { type: 'collapse' }
   | { type: 'lowercase' }
@@ -75,13 +75,17 @@ export function replacePatternError(step: Extract<Step, { type: 'replace' }>): s
   }
 }
 
+/** Varios espacios o tabs seguidos → uno. Los saltos de línea se conservan. */
+function collapseSpaces(value: string): string {
+  return value.replace(/[^\S\r\n]{2,}/g, ' ')
+}
+
 export function applyStep(value: string, step: Step): string {
   switch (step.type) {
     case 'trim':
       return value.trim()
     case 'collapse':
-      // Solo espacios y tabs: los saltos de línea se conservan.
-      return value.replace(/[^\S\r\n]{2,}/g, ' ')
+      return collapseSpaces(value)
     case 'lowercase':
       return value.toLocaleLowerCase()
     case 'uppercase':
@@ -104,7 +108,7 @@ function applyGlobal(value: string, global: GlobalNormalization): string {
     // Espacios duros → espacio normal; caracteres de ancho cero y BOM → nada.
     result = result.replace(/[   ]/g, ' ').replace(/[​-‍⁠﻿]/g, '')
   }
-  if (global.collapse) result = applyStep(result, { type: 'collapse' })
+  if (global.collapse) result = collapseSpaces(result)
   if (global.trim) result = result.trim()
   return result
 }

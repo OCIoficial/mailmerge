@@ -55,8 +55,8 @@ export const ADDRESS_FIELDS: TemplateField[] = ['to', 'cc', 'bcc', 'replyTo']
 
 export interface CompiledTemplate {
   fields: Partial<Record<TemplateField, Template[]>>
-  /** Una entrada por ruta de adjunto; null si la ruta tiene un error de sintaxis. */
-  attachments: (Template[] | null)[]
+  /** Una entrada por ruta de adjunto; templates null si la ruta tiene un error de sintaxis. */
+  attachments: { templates: Template[] | null; required: boolean }[]
   /** Errores de sintaxis; si hay alguno, ningún correo se puede renderizar. */
   errors: string[]
 }
@@ -71,11 +71,11 @@ export function compileTemplate(template: EmailTemplate): CompiledTemplate {
       compiled.errors.push(`${FIELD_LABELS[field]}: ${(e as Error).message}`)
     }
   }
-  template.attachments.forEach((path, i) => {
+  template.attachments.forEach(({ path, required }, i) => {
     try {
-      compiled.attachments.push(textEngine.parse(path))
+      compiled.attachments.push({ templates: textEngine.parse(path), required })
     } catch (e) {
-      compiled.attachments.push(null)
+      compiled.attachments.push({ templates: null, required })
       compiled.errors.push(`Attachment ${i + 1}: ${(e as Error).message}`)
     }
   })
@@ -94,6 +94,8 @@ export interface Problem {
 export type RenderedEmail = Record<TemplateField, string> & {
   index: number
   attachments: ResolvedAttachment[]
+  /** Rutas opcionales que no se encontraron: el correo sale sin esos adjuntos. */
+  skippedAttachments: string[]
   problems: Problem[]
 }
 
@@ -112,9 +114,12 @@ function addressOf(entry: string): string {
 }
 
 function resolveAttachments(compiled: CompiledTemplate, row: Row, tree: AttachmentTree | null, email: RenderedEmail) {
-  compiled.attachments.forEach((templates, i) => {
+  compiled.attachments.forEach(({ templates, required }, i) => {
     if (!templates) return
     const problem = (message: string) => email.problems.push({ field: 'attachments', message })
+    // Opcional y sin archivo: no es un problema, el correo sale sin ese adjunto.
+    const missing = (path: string, message: string) =>
+      required ? problem(message) : email.skippedAttachments.push(path || `path ${i + 1}`)
     let path: string
     try {
       path = (textEngine.renderSync(templates, row) as string).trim()
@@ -122,11 +127,11 @@ function resolveAttachments(compiled: CompiledTemplate, row: Row, tree: Attachme
       problem(`path ${i + 1}: ${(e as Error).message}`)
       return
     }
-    if (splitPath(path).length === 0) return problem(`path ${i + 1} is empty.`)
-    if (!tree) return problem(`"${path}": no files loaded.`)
+    if (splitPath(path).length === 0) return missing(path, `path ${i + 1} is empty.`)
+    if (!tree) return missing(path, `"${path}": no files loaded.`)
 
     const matches = findPath(tree, path)
-    if (matches.length === 0) return problem(`"${path}" not found.`)
+    if (matches.length === 0) return missing(path, `"${path}" not found.`)
     // Sin comodines debe haber un solo resultado; Drive permite nombres repetidos.
     if (!hasGlob(path) && matches.length > 1) return problem(`"${path}" matches ${matches.length} items with the same name.`)
     email.attachments.push(...matches.map(toAttachment))
@@ -142,6 +147,7 @@ export function renderEmail(compiled: CompiledTemplate, row: Row, index: number,
   const email: RenderedEmail = {
     index,
     attachments: [],
+    skippedAttachments: [],
     problems: [],
     to: '',
     cc: '',

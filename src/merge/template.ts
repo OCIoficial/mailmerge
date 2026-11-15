@@ -13,7 +13,13 @@ export interface EmailTemplate {
   /** HTML generado por el editor de texto enriquecido. */
   body: string
   /** Rutas de adjuntos (con variables y comodines), relativas al árbol cargado. */
-  attachments: string[]
+  attachments: AttachmentPath[]
+}
+
+export interface AttachmentPath {
+  path: string
+  /** Si es obligatorio, que no se encuentre es un problema; si no, el correo sale sin ese adjunto. */
+  required: boolean
 }
 
 /** Campos que se renderizan en cada correo. */

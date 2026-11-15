@@ -13,14 +13,6 @@ export const DEFAULT_SHEET_SETTINGS: SheetSettings = {
   normalization: DEFAULT_NORMALIZATION,
 }
 
-// Antes el encabezado y la normalización eran globales; esas claves ya no se usan.
-try {
-  localStorage.removeItem('mail-merge:normalization')
-  localStorage.removeItem('mail-merge:has-header')
-} catch {
-  // localStorage puede no estar disponible (modo privado); no importa.
-}
-
 /** Identifica una hoja: id del spreadsheet + nombre de la hoja. */
 export function sheetKey(spreadsheetId: string, sheet: string): string {
   return `${spreadsheetId}::${sheet}`

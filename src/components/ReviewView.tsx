@@ -212,6 +212,12 @@ function EmailDetail({
       </dl>
 
       {email.attachments.length > 0 && <AttachmentChips attachments={email.attachments} />}
+      {email.skippedAttachments.length > 0 && (
+        <Text size="xs" c="dimmed">
+          Sent without optional {email.skippedAttachments.length === 1 ? 'attachment' : 'attachments'} (nothing
+          matched): {email.skippedAttachments.join(', ')}
+        </Text>
+      )}
 
       <EmailBody html={email.body} device={device} />
     </Stack>

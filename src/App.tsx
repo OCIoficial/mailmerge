@@ -45,14 +45,6 @@ function App() {
     defaultValue: EMPTY_TEMPLATE,
     // Se lee de inmediato para que el editor arranque con el contenido guardado.
     getInitialValueInEffect: false,
-    // Completa con los valores por defecto los campos que no existían al guardar.
-    deserialize: (value) => {
-      try {
-        return { ...EMPTY_TEMPLATE, ...(value ? JSON.parse(value) : {}) }
-      } catch {
-        return EMPTY_TEMPLATE
-      }
-    },
   })
 
   // Encabezado y normalización se guardan por hoja: cada hoja tiene sus columnas.
