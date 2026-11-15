@@ -1,6 +1,8 @@
 import { Accordion, Alert, Badge, Group, List, Stack, Table, Text, Title } from '@mantine/core'
 import { useState } from 'react'
-import type { RenderedEmail } from '../merge/render.ts'
+import type { ResolvedAttachment } from '../attachments/resolve.ts'
+import { formatSize } from '../attachments/tree.ts'
+import { PROBLEM_LABELS, type RenderedEmail } from '../merge/render.ts'
 import { FIELD_LABELS } from '../merge/template.ts'
 
 interface Props {
@@ -25,6 +27,40 @@ function EmailBody({ html }: { html: string }) {
         if (document) setHeight(document.documentElement.scrollHeight + 2)
       }}
     />
+  )
+}
+
+function Attachments({ attachments }: { attachments: ResolvedAttachment[] }) {
+  return (
+    <Stack gap={4}>
+      {attachments.map((attachment, i) =>
+        attachment.kind === 'zip' ? (
+          // Un ZIP se puede expandir para ver qué archivos incluye.
+          <details key={i}>
+            <summary style={{ cursor: 'pointer', fontSize: 'var(--mantine-font-size-sm)' }}>
+              {attachment.filename}{' '}
+              <Text span size="xs" c="dimmed">
+                {formatSize(attachment.size)}, {attachment.files.length} files
+              </Text>
+            </summary>
+            <List size="xs" c="dimmed" ml="md" mt={4} listStyleType="none">
+              {attachment.files.map((file) => (
+                <List.Item key={file} ff="monospace">
+                  {file}
+                </List.Item>
+              ))}
+            </List>
+          </details>
+        ) : (
+          <Text key={i} size="sm">
+            {attachment.filename}{' '}
+            <Text span size="xs" c="dimmed">
+              {formatSize(attachment.size)}
+            </Text>
+          </Text>
+        ),
+      )}
+    </Stack>
   )
 }
 
@@ -75,6 +111,11 @@ export function PreviewList({ emails, templateErrors, problemCount }: Props) {
                   <Text size="sm" truncate style={{ flex: 1 }}>
                     {email.to || '(no recipient)'} — {email.subject || '(no subject)'}
                   </Text>
+                  {email.attachments.length > 0 && (
+                    <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
+                      {email.attachments.length} {email.attachments.length === 1 ? 'attachment' : 'attachments'}
+                    </Text>
+                  )}
                   {email.problems.length > 0 && (
                     <Badge color="red" size="sm">
                       {email.problems.length}
@@ -89,7 +130,7 @@ export function PreviewList({ emails, templateErrors, problemCount }: Props) {
                       <Alert color="red" p="xs">
                         <List size="sm">
                           {email.problems.map((problem) => {
-                            const text = `${FIELD_LABELS[problem.field]}: ${problem.message}`
+                            const text = `${PROBLEM_LABELS[problem.field]}: ${problem.message}`
                             return <List.Item key={text}>{text}</List.Item>
                           })}
                         </List>
@@ -105,6 +146,16 @@ export function PreviewList({ emails, templateErrors, problemCount }: Props) {
                             <Table.Td>{email[field]}</Table.Td>
                           </Table.Tr>
                         ))}
+                        {email.attachments.length > 0 && (
+                          <Table.Tr>
+                            <Table.Td w={110} c="dimmed" style={{ verticalAlign: 'top' }}>
+                              Attachments
+                            </Table.Td>
+                            <Table.Td>
+                              <Attachments attachments={email.attachments} />
+                            </Table.Td>
+                          </Table.Tr>
+                        )}
                       </Table.Tbody>
                     </Table>
                     <EmailBody html={email.body} />

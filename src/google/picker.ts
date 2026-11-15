@@ -15,20 +15,17 @@ export interface PickedFile {
   name: string
 }
 
-/** Abre Google Picker para elegir una planilla. Devuelve null si el usuario cancela. */
-export async function pickSpreadsheet(token: string): Promise<PickedFile | null> {
+/** Abre Google Picker con una vista. Devuelve null si el usuario cancela. */
+async function pick(token: string, title: string, view: google.picker.DocsView): Promise<PickedFile | null> {
   await loadPicker()
   return new Promise((resolve) => {
-    const view = new google.picker.DocsView(google.picker.ViewId.SPREADSHEETS).setMode(
-      google.picker.DocsViewMode.LIST,
-    )
     const picker = new google.picker.PickerBuilder()
       .addView(view)
       .setOAuthToken(token)
       .setDeveloperKey(googleConfig.apiKey)
       .setAppId(googleConfig.appId)
       .setLocale('en')
-      .setTitle('Choose a spreadsheet')
+      .setTitle(title)
       .setCallback((data) => {
         const action = data[google.picker.Response.ACTION]
         if (action === google.picker.Action.PICKED) {
@@ -45,4 +42,38 @@ export async function pickSpreadsheet(token: string): Promise<PickedFile | null>
       .build()
     picker.setVisible(true)
   })
+}
+
+// Las vistas usan google.picker, que existe recién después de cargar el script.
+export async function pickSpreadsheet(token: string) {
+  await loadPicker()
+  const view = new google.picker.DocsView(google.picker.ViewId.SPREADSHEETS).setMode(google.picker.DocsViewMode.LIST)
+  return pick(token, 'Choose a spreadsheet', view)
+}
+
+export async function pickFolder(token: string) {
+  await loadPicker()
+  const view = new google.picker.DocsView(google.picker.ViewId.FOLDERS)
+    .setIncludeFolders(true)
+    .setSelectFolderEnabled(true)
+    .setMimeTypes('application/vnd.google-apps.folder')
+    .setMode(google.picker.DocsViewMode.LIST)
+  return pick(token, 'Choose a folder', view)
+}
+
+const ARCHIVE_TYPES = [
+  'application/zip',
+  'application/x-zip-compressed',
+  'application/x-tar',
+  'application/gzip',
+  'application/x-gzip',
+  'application/x-compressed-tar',
+]
+
+export async function pickArchive(token: string) {
+  await loadPicker()
+  const view = new google.picker.DocsView(google.picker.ViewId.DOCS)
+    .setMimeTypes(ARCHIVE_TYPES.join(','))
+    .setMode(google.picker.DocsViewMode.LIST)
+  return pick(token, 'Choose a ZIP or TAR.GZ file', view)
 }

@@ -2,7 +2,7 @@ import { Button, Card, Group, Stack, Text, TextInput, Title } from '@mantine/cor
 import { notifications } from '@mantine/notifications'
 import { useState } from 'react'
 import { useAuth } from '../google/AuthContext.tsx'
-import { ADDRESS_FIELDS, type RenderedEmail } from '../merge/render.ts'
+import { ADDRESS_FIELDS, type ProblemField, type RenderedEmail } from '../merge/render.ts'
 
 interface Props {
   emails: RenderedEmail[]
@@ -23,7 +23,7 @@ export function SendPanel({ emails, problemCount, sample }: Props) {
 
   const first = emails[0]
   // La prueba ignora los destinatarios de la fila, así que solo importan los errores de render.
-  const firstRenders = first?.problems.every((problem) => ADDRESS_FIELDS.includes(problem.field))
+  const firstRenders = first?.problems.every((problem) => (ADDRESS_FIELDS as ProblemField[]).includes(problem.field))
 
   return (
     <Card withBorder>

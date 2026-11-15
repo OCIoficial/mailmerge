@@ -2,6 +2,7 @@ import { Alert, AppShell, Grid, Stack } from '@mantine/core'
 import { useLocalStorage } from '@mantine/hooks'
 import { useCallback, useDeferredValue, useMemo, useState } from 'react'
 import { AppHeader } from './components/AppHeader.tsx'
+import type { AttachmentTree } from './attachments/tree.ts'
 import { AttachmentsPanel } from './components/AttachmentsPanel.tsx'
 import { NormalizedData } from './components/NormalizedData.tsx'
 import { PreviewList } from './components/PreviewList.tsx'
@@ -18,6 +19,8 @@ import { EMPTY_TEMPLATE, type EmailTemplate } from './merge/template.ts'
 function App() {
   const auth = useAuth()
   const [dataset, setDataset] = useState<Dataset | null>(null)
+  // Árbol de archivos para los adjuntos; no se guarda entre sesiones.
+  const [tree, setTree] = useState<AttachmentTree | null>(null)
   const [datasetVersion, setDatasetVersion] = useState(0)
   const [template, setTemplate] = useLocalStorage<EmailTemplate>({
     key: 'mail-merge:template',
@@ -60,8 +63,8 @@ function App() {
   const deferredTemplate = useDeferredValue(template)
   const compiled = useMemo(() => compileTemplate(deferredTemplate), [deferredTemplate])
   const emails = useMemo(
-    () => (compiled.errors.length > 0 ? [] : (normalized?.rows ?? []).map((row, i) => renderEmail(compiled, row, i))),
-    [compiled, normalized],
+    () => (compiled.errors.length > 0 ? [] : (normalized?.rows ?? []).map((row, i) => renderEmail(compiled, row, i, tree))),
+    [compiled, normalized, tree],
   )
   const problemCount = emails.filter((email) => email.problems.length > 0).length
 
@@ -91,7 +94,12 @@ function App() {
                   )}
                 </SpreadsheetPanel>
                 <TemplateEditor template={template} columns={dataset?.columns ?? []} onChange={updateTemplate} />
-                <AttachmentsPanel />
+                <AttachmentsPanel
+                  tree={tree}
+                  onTreeChange={setTree}
+                  paths={template.attachments}
+                  onPathsChange={(attachments) => updateTemplate({ attachments })}
+                />
                 <SendPanel emails={emails} problemCount={problemCount} sample={Boolean(dataset?.sample)} />
               </Stack>
             </Grid.Col>

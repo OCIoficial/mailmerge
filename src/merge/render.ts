@@ -1,5 +1,7 @@
 import { Liquid, type Template } from 'liquidjs'
 import MarkdownIt from 'markdown-it'
+import { MAX_ATTACHMENTS_SIZE, toAttachment, type ResolvedAttachment } from '../attachments/resolve.ts'
+import { findPath, formatSize, hasGlob, splitPath, type AttachmentTree } from '../attachments/tree.ts'
 import type { Row } from './dataset.ts'
 import { titlecase } from './normalize.ts'
 import { FIELD_LABELS, type EmailTemplate, type TemplateField } from './template.ts'
@@ -53,12 +55,14 @@ export const ADDRESS_FIELDS: TemplateField[] = ['to', 'cc', 'bcc', 'replyTo']
 
 export interface CompiledTemplate {
   fields: Partial<Record<TemplateField, Template[]>>
+  /** Una entrada por ruta de adjunto; null si la ruta tiene un error de sintaxis. */
+  attachments: (Template[] | null)[]
   /** Errores de sintaxis; si hay alguno, ningún correo se puede renderizar. */
   errors: string[]
 }
 
 export function compileTemplate(template: EmailTemplate): CompiledTemplate {
-  const compiled: CompiledTemplate = { fields: {}, errors: [] }
+  const compiled: CompiledTemplate = { fields: {}, attachments: [], errors: [] }
   for (const field of FIELDS) {
     try {
       compiled.fields[field] =
@@ -67,16 +71,29 @@ export function compileTemplate(template: EmailTemplate): CompiledTemplate {
       compiled.errors.push(`${FIELD_LABELS[field]}: ${(e as Error).message}`)
     }
   }
+  template.attachments.forEach((path, i) => {
+    try {
+      compiled.attachments.push(textEngine.parse(path))
+    } catch (e) {
+      compiled.attachments.push(null)
+      compiled.errors.push(`Attachment ${i + 1}: ${(e as Error).message}`)
+    }
+  })
   return compiled
 }
 
+export type ProblemField = TemplateField | 'attachments'
+
+export const PROBLEM_LABELS: Record<ProblemField, string> = { ...FIELD_LABELS, attachments: 'Attachments' }
+
 export interface Problem {
-  field: TemplateField
+  field: ProblemField
   message: string
 }
 
 export type RenderedEmail = Record<TemplateField, string> & {
   index: number
+  attachments: ResolvedAttachment[]
   problems: Problem[]
 }
 
@@ -94,8 +111,45 @@ function addressOf(entry: string): string {
   return entry.match(/<([^>]*)>\s*$/)?.[1].trim() ?? entry
 }
 
-export function renderEmail(compiled: CompiledTemplate, row: Row, index: number): RenderedEmail {
-  const email: RenderedEmail = { index, problems: [], to: '', cc: '', bcc: '', replyTo: '', subject: '', body: '' }
+function resolveAttachments(compiled: CompiledTemplate, row: Row, tree: AttachmentTree | null, email: RenderedEmail) {
+  compiled.attachments.forEach((templates, i) => {
+    if (!templates) return
+    const problem = (message: string) => email.problems.push({ field: 'attachments', message })
+    let path: string
+    try {
+      path = (textEngine.renderSync(templates, row) as string).trim()
+    } catch (e) {
+      problem(`path ${i + 1}: ${(e as Error).message}`)
+      return
+    }
+    if (splitPath(path).length === 0) return problem(`path ${i + 1} is empty.`)
+    if (!tree) return problem(`"${path}": no files loaded.`)
+
+    const matches = findPath(tree, path)
+    if (matches.length === 0) return problem(`"${path}" not found.`)
+    // Sin comodines debe haber un solo resultado; Drive permite nombres repetidos.
+    if (!hasGlob(path) && matches.length > 1) return problem(`"${path}" matches ${matches.length} items with the same name.`)
+    email.attachments.push(...matches.map(toAttachment))
+  })
+
+  const total = email.attachments.reduce((sum, attachment) => sum + (attachment.size ?? 0), 0)
+  if (total > MAX_ATTACHMENTS_SIZE) {
+    email.problems.push({ field: 'attachments', message: `${formatSize(total)} in total; Gmail allows up to 25 MB.` })
+  }
+}
+
+export function renderEmail(compiled: CompiledTemplate, row: Row, index: number, tree: AttachmentTree | null): RenderedEmail {
+  const email: RenderedEmail = {
+    index,
+    attachments: [],
+    problems: [],
+    to: '',
+    cc: '',
+    bcc: '',
+    replyTo: '',
+    subject: '',
+    body: '',
+  }
 
   for (const field of FIELDS) {
     const templates = compiled.fields[field]
@@ -118,5 +172,6 @@ export function renderEmail(compiled: CompiledTemplate, row: Row, index: number)
       }
     }
   }
+  resolveAttachments(compiled, row, tree, email)
   return email
 }

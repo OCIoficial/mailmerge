@@ -12,6 +12,8 @@ export interface EmailTemplate {
   markdown: string
   /** HTML generado por el editor de texto enriquecido. */
   body: string
+  /** Rutas de adjuntos (con variables y comodines), relativas al árbol cargado. */
+  attachments: string[]
 }
 
 /** Campos que se renderizan en cada correo. */
@@ -35,4 +37,5 @@ export const EMPTY_TEMPLATE: EmailTemplate = {
   format: 'markdown',
   markdown: '',
   body: '<p></p>',
+  attachments: [],
 }
