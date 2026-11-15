@@ -7,6 +7,7 @@ import { AttachmentsPanel } from './components/AttachmentsPanel.tsx'
 import { NormalizedData } from './components/NormalizedData.tsx'
 import { ReviewView } from './components/ReviewView.tsx'
 import { SendPanel } from './components/SendPanel.tsx'
+import { useSender } from './mail/useSender.ts'
 import { SpreadsheetPanel } from './components/SpreadsheetPanel.tsx'
 import { TemplateEditor } from './components/TemplateEditor.tsx'
 import { missingConfig } from './config.ts'
@@ -67,12 +68,19 @@ function App() {
   // Filas excluidas del envío, por índice. Se reinician al cambiar de hoja o de encabezado,
   // porque los índices dejan de corresponder a las mismas filas.
   const [excluded, setExcluded] = useState<Set<number>>(() => new Set())
+  // Estado de envío por fila; se reinicia con la planilla por la misma razón.
+  const sender = useSender()
+  const resetSender = sender.reset
 
-  const changeDataset = useCallback((next: Dataset | null) => {
-    setDataset(next)
-    setExcluded(new Set())
-    setDatasetVersion((version) => version + 1)
-  }, [])
+  const changeDataset = useCallback(
+    (next: Dataset | null) => {
+      setDataset(next)
+      setExcluded(new Set())
+      resetSender()
+      setDatasetVersion((version) => version + 1)
+    },
+    [resetSender],
+  )
 
   // Los correos se renderizan con los datos ya normalizados.
   const normalized = useMemo(
@@ -144,7 +152,8 @@ function App() {
               emails={emails}
               templateErrors={compiled.errors}
               problemCount={problemCount}
-              sendPanel={<SendPanel emails={emails} problemCount={problemCount} sample={Boolean(dataset?.sample)} />}
+              statuses={sender.statuses}
+              sendPanel={<SendPanel emails={emails} sender={sender} sample={Boolean(dataset?.sample)} />}
             />
           )}
         </Stack>

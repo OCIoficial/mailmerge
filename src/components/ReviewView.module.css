@@ -227,3 +227,14 @@
   width: 100%;
   border: 0;
 }
+
+/* Estado de envío: ícono + color (el detalle explica el motivo de una falla). */
+.sent {
+  color: var(--mantine-color-green-text);
+  font-weight: 600;
+}
+
+.failed {
+  color: var(--mantine-color-red-text);
+  font-weight: 700;
+}

@@ -1,8 +1,9 @@
-import { Anchor, Grid, Group, ScrollArea, SegmentedControl, Stack, Text, UnstyledButton } from '@mantine/core'
+import { Anchor, Grid, Group, Loader, ScrollArea, SegmentedControl, Stack, Text, UnstyledButton } from '@mantine/core'
 import { useReducedMotion } from '@mantine/hooks'
 import { useState, type ReactNode } from 'react'
 import type { ResolvedAttachment } from '../attachments/resolve.ts'
 import { formatSize } from '../attachments/tree.ts'
+import type { SendStatus } from '../mail/useSender.ts'
 import { PROBLEM_LABELS, type RenderedEmail } from '../merge/render.ts'
 import { FIELD_LABELS } from '../merge/template.ts'
 import { Notice, WarningIcon } from './Notice.tsx'
@@ -14,6 +15,8 @@ interface Props {
   problemCount: number
   /** Panel de envío, debajo de la lista. */
   sendPanel: ReactNode
+  /** Estado de envío por fila. */
+  statuses: Map<number, SendStatus>
 }
 
 type Filter = 'all' | 'problems'
@@ -98,7 +101,7 @@ function AttachmentChips({ attachments }: { attachments: ResolvedAttachment[] })
   )
 }
 
-function EmailRow({ email }: { email: RenderedEmail }) {
+function EmailRow({ email, status }: { email: RenderedEmail; status?: SendStatus }) {
   return (
     <div className={classes.row}>
       <span className={classes.number}>#{email.index + 1}</span>
@@ -111,6 +114,17 @@ function EmailRow({ email }: { email: RenderedEmail }) {
         </div>
       </div>
       <div className={classes.trailing}>
+        {status?.state === 'sending' && <Loader size={12} aria-label="Sending" />}
+        {status?.state === 'sent' && (
+          <span className={classes.sent} title="Sent">
+            ✓
+          </span>
+        )}
+        {status?.state === 'failed' && (
+          <span className={classes.failed} title={`Not sent: ${status.error}`}>
+            ✕
+          </span>
+        )}
         {email.attachments.length > 0 && (
           <span className={classes.clip} title={`${email.attachments.length} attachments`}>
             <PaperclipIcon />
@@ -128,7 +142,7 @@ function EmailRow({ email }: { email: RenderedEmail }) {
   )
 }
 
-function EmailDetail({ email, device }: { email: RenderedEmail; device: Device }) {
+function EmailDetail({ email, device, status }: { email: RenderedEmail; device: Device; status?: SendStatus }) {
   const problemsByField = new Map<string, string[]>()
   for (const problem of email.problems) {
     problemsByField.set(problem.field, [...(problemsByField.get(problem.field) ?? []), problem.message])
@@ -136,6 +150,16 @@ function EmailDetail({ email, device }: { email: RenderedEmail; device: Device }
   const count = email.problems.length
   return (
     <Stack gap="sm">
+      {status?.state === 'failed' && (
+        <Notice tone="error" title="Not sent">
+          {status.error}
+        </Notice>
+      )}
+      {status?.state === 'sent' && (
+        <Text size="sm" className={classes.sent}>
+          ✓ Sent at {new Date(status.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        </Text>
+      )}
       {count > 0 && (
         <Notice tone="warning" title={count === 1 ? '1 thing to fix before sending' : `${count} things to fix before sending`}>
           <dl className={classes.problems}>
@@ -174,7 +198,7 @@ function EmailDetail({ email, device }: { email: RenderedEmail; device: Device }
   )
 }
 
-export function ReviewView({ emails, templateErrors, problemCount, sendPanel }: Props) {
+export function ReviewView({ emails, templateErrors, problemCount, sendPanel, statuses }: Props) {
   // Por defecto se muestra el primer correo como ejemplo.
   const [selected, setSelected] = useState(0)
   const [filter, setFilter] = useState<Filter>('all')
@@ -264,7 +288,7 @@ export function ReviewView({ emails, templateErrors, problemCount, sendPanel }: 
                       data-selected={email.index === current?.index || undefined}
                       onClick={() => setSelected(email.index)}
                     >
-                      <EmailRow email={email} />
+                      <EmailRow email={email} status={statuses.get(email.index)} />
                     </UnstyledButton>
                   ))}
                 </div>
@@ -275,7 +299,7 @@ export function ReviewView({ emails, templateErrors, problemCount, sendPanel }: 
           <Grid.Col span={{ base: 12, md: 8 }}>
             {current && (
               <div className={classes.detail}>
-                <EmailDetail key={current.index} email={current} device={device} />
+                <EmailDetail key={current.index} email={current} device={device} status={statuses.get(current.index)} />
               </div>
             )}
           </Grid.Col>
