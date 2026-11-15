@@ -1,4 +1,5 @@
 import { Liquid, type Template } from 'liquidjs'
+import MarkdownIt from 'markdown-it'
 import type { Row } from './dataset.ts'
 import { FIELD_LABELS, type EmailTemplate, type TemplateField } from './template.ts'
 
@@ -23,6 +24,9 @@ function createEngine(escapeHtml: boolean) {
 const textEngine = createEngine(false)
 const htmlEngine = createEngine(true)
 
+// Sin HTML crudo; sin typographer, que cambiaría las comillas de las etiquetas Liquid.
+const markdown = new MarkdownIt({ html: false, linkify: true, breaks: true, typographer: false })
+
 const ENTITIES: Record<string, string> = {
   '&amp;': '&',
   '&lt;': '<',
@@ -33,13 +37,21 @@ const ENTITIES: Record<string, string> = {
 }
 
 /**
- * El editor guarda HTML, así que `{% if a > 1 %}` llega como `{% if a &gt; 1 %}`.
+ * El cuerpo llega como HTML, así que `{% if a > 1 %}` llega como `{% if a &gt; 1 %}`.
  * Se decodifican las entidades solo dentro de las etiquetas Liquid.
  */
 function decodeLiquidTags(html: string): string {
   return html.replace(/\{\{[\s\S]*?\}\}|\{%[\s\S]*?%\}/g, (tag) =>
-    tag.replace(/&(amp|lt|gt|quot|#39|nbsp);/g, (entity) => ENTITIES[entity]).replaceAll('\u00a0', ' '),
+    tag.replace(/&(amp|lt|gt|quot|#39|nbsp);/g, (entity) => ENTITIES[entity]).replaceAll(' ', ' '),
   )
+}
+
+/**
+ * HTML del cuerpo antes de aplicar Liquid. El Markdown se convierte primero, una sola vez,
+ * para que los valores de la planilla nunca se interpreten como Markdown.
+ */
+function bodyHtml(template: EmailTemplate): string {
+  return template.format === 'markdown' ? markdown.render(template.markdown) : template.body
 }
 
 const FIELDS = Object.keys(FIELD_LABELS) as TemplateField[]
@@ -56,7 +68,7 @@ export function compileTemplate(template: EmailTemplate): CompiledTemplate {
   for (const field of FIELDS) {
     try {
       compiled.fields[field] =
-        field === 'body' ? htmlEngine.parse(decodeLiquidTags(template.body)) : textEngine.parse(template[field])
+        field === 'body' ? htmlEngine.parse(decodeLiquidTags(bodyHtml(template))) : textEngine.parse(template[field])
     } catch (e) {
       compiled.errors.push(`${FIELD_LABELS[field]}: ${(e as Error).message}`)
     }
@@ -69,7 +81,7 @@ export interface Problem {
   message: string
 }
 
-export interface RenderedEmail extends EmailTemplate {
+export type RenderedEmail = Record<TemplateField, string> & {
   index: number
   problems: Problem[]
 }

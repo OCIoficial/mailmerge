@@ -1,18 +1,37 @@
-import { Anchor, Button, Card, Group, SimpleGrid, Stack, Text, TextInput, Title } from '@mantine/core'
+import {
+  Anchor,
+  Button,
+  Card,
+  Group,
+  SegmentedControl,
+  SimpleGrid,
+  Stack,
+  Text,
+  Textarea,
+  TextInput,
+  Title,
+} from '@mantine/core'
 import { Link, RichTextEditor } from '@mantine/tiptap'
 import { useEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import { useRef, useState } from 'react'
 import type { Column } from '../merge/dataset.ts'
-import { FIELD_LABELS, type EmailTemplate, type TemplateField } from '../merge/template.ts'
+import { FIELD_LABELS, type BodyFormat, type EmailTemplate, type TemplateField } from '../merge/template.ts'
 
 type TextField = Exclude<TemplateField, 'body'>
+/** Campos de texto plano donde se insertan variables en la posición del cursor. */
+type PlainField = TextField | 'markdown'
 
 const TEXT_FIELDS: { field: TextField; placeholder: string }[] = [
   { field: 'to', placeholder: '{{ email }}' },
   { field: 'cc', placeholder: 'Optional' },
   { field: 'bcc', placeholder: 'Optional' },
   { field: 'replyTo', placeholder: 'Optional' },
+]
+
+const FORMATS: { value: BodyFormat; label: string }[] = [
+  { value: 'markdown', label: 'Markdown' },
+  { value: 'richtext', label: 'Rich text' },
 ]
 
 interface Props {
@@ -22,7 +41,7 @@ interface Props {
 }
 
 export function TemplateEditor({ template, columns, onChange }: Props) {
-  const inputs = useRef<Partial<Record<TextField, HTMLInputElement | null>>>({})
+  const inputs = useRef<Partial<Record<PlainField, HTMLInputElement | HTMLTextAreaElement | null>>>({})
   const [target, setTarget] = useState<TemplateField>('body')
 
   const editor = useEditor({
@@ -34,15 +53,16 @@ export function TemplateEditor({ template, columns, onChange }: Props) {
 
   function insertVariable(key: string) {
     const snippet = `{{ ${key} }}`
-    if (target === 'body') {
+    if (target === 'body' && template.format === 'richtext') {
       editor?.chain().focus().insertContent(snippet).run()
       return
     }
-    const input = inputs.current[target]
-    const value = template[target]
+    const field: PlainField = target === 'body' ? 'markdown' : target
+    const input = inputs.current[field]
+    const value = template[field]
     const start = input?.selectionStart ?? value.length
     const end = input?.selectionEnd ?? value.length
-    onChange({ [target]: value.slice(0, start) + snippet + value.slice(end) })
+    onChange({ [field]: value.slice(0, start) + snippet + value.slice(end) })
     requestAnimationFrame(() => {
       input?.focus()
       input?.setSelectionRange(start + snippet.length, start + snippet.length)
@@ -96,36 +116,62 @@ export function TemplateEditor({ template, columns, onChange }: Props) {
         {textInput('subject')}
 
         <Stack gap={4}>
-          <Text size="sm" fw={500}>
-            {FIELD_LABELS.body}
-          </Text>
-          <RichTextEditor editor={editor}>
-            <RichTextEditor.Toolbar>
-              <RichTextEditor.ControlsGroup>
-                <RichTextEditor.Bold />
-                <RichTextEditor.Italic />
-                <RichTextEditor.Underline />
-                <RichTextEditor.Strikethrough />
-                <RichTextEditor.ClearFormatting />
-              </RichTextEditor.ControlsGroup>
-              <RichTextEditor.ControlsGroup>
-                <RichTextEditor.H2 />
-                <RichTextEditor.H3 />
-                <RichTextEditor.BulletList />
-                <RichTextEditor.OrderedList />
-                <RichTextEditor.Blockquote />
-              </RichTextEditor.ControlsGroup>
-              <RichTextEditor.ControlsGroup>
-                <RichTextEditor.Link />
-                <RichTextEditor.Unlink />
-              </RichTextEditor.ControlsGroup>
-              <RichTextEditor.ControlsGroup>
-                <RichTextEditor.Undo />
-                <RichTextEditor.Redo />
-              </RichTextEditor.ControlsGroup>
-            </RichTextEditor.Toolbar>
-            <RichTextEditor.Content mih={240} />
-          </RichTextEditor>
+          <Group justify="space-between">
+            <Text size="sm" fw={500}>
+              {FIELD_LABELS.body}
+            </Text>
+            <SegmentedControl
+              size="xs"
+              aria-label="Body format"
+              data={FORMATS}
+              value={template.format}
+              onChange={(value) => onChange({ format: value as BodyFormat })}
+            />
+          </Group>
+
+          {template.format === 'markdown' ? (
+            <Textarea
+              aria-label={FIELD_LABELS.body}
+              placeholder={'Hi {{ name }},\n\nYour **balance** is {{ amount }}.'}
+              autosize
+              minRows={10}
+              ff="monospace"
+              value={template.markdown}
+              ref={(element) => {
+                inputs.current.markdown = element
+              }}
+              onFocus={() => setTarget('body')}
+              onChange={(event) => onChange({ markdown: event.currentTarget.value })}
+            />
+          ) : (
+            <RichTextEditor editor={editor}>
+              <RichTextEditor.Toolbar>
+                <RichTextEditor.ControlsGroup>
+                  <RichTextEditor.Bold />
+                  <RichTextEditor.Italic />
+                  <RichTextEditor.Underline />
+                  <RichTextEditor.Strikethrough />
+                  <RichTextEditor.ClearFormatting />
+                </RichTextEditor.ControlsGroup>
+                <RichTextEditor.ControlsGroup>
+                  <RichTextEditor.H2 />
+                  <RichTextEditor.H3 />
+                  <RichTextEditor.BulletList />
+                  <RichTextEditor.OrderedList />
+                  <RichTextEditor.Blockquote />
+                </RichTextEditor.ControlsGroup>
+                <RichTextEditor.ControlsGroup>
+                  <RichTextEditor.Link />
+                  <RichTextEditor.Unlink />
+                </RichTextEditor.ControlsGroup>
+                <RichTextEditor.ControlsGroup>
+                  <RichTextEditor.Undo />
+                  <RichTextEditor.Redo />
+                </RichTextEditor.ControlsGroup>
+              </RichTextEditor.Toolbar>
+              <RichTextEditor.Content mih={240} />
+            </RichTextEditor>
+          )}
         </Stack>
 
         <Text size="xs" c="dimmed">
@@ -135,6 +181,15 @@ export function TemplateEditor({ template, columns, onChange }: Props) {
           </Anchor>
           : <code>{'{{ name | titlecase }}'}</code>, <code>{'{{ amount | default: "0" }}'}</code>,{' '}
           <code>{'{% if group == "A" %}...{% endif %}'}</code>. Extra filter: <code>titlecase</code>.
+          {template.format === 'markdown' && (
+            <>
+              {' '}
+              <Anchor href="https://commonmark.org/help/" target="_blank" size="xs">
+                Markdown
+              </Anchor>
+              : <code>**bold**</code>, <code>*italic*</code>, <code>[link](https://…)</code>, <code>- list</code>.
+            </>
+          )}
         </Text>
       </Stack>
     </Card>
