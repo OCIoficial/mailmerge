@@ -22,17 +22,28 @@
 .google {
   height: 36px;
   padding: 0 12px;
-  border: 1px solid light-dark(#747775, #8e918f);
+  border: 1px solid #747775;
   border-radius: 18px;
-  background: light-dark(#ffffff, #131314);
-  color: light-dark(#1f1f1f, #e3e3e3);
+  background: #ffffff;
+  color: #1f1f1f;
   font-family: Roboto, var(--mantine-font-family);
   font-size: 14px;
   font-weight: 500;
 }
 
 .google:hover {
-  background: light-dark(#f2f2f2, #1f1f20);
+  background: #f2f2f2;
+}
+
+/* Atributo de tema de Mantine en vez de light-dark(), que el build no traduce bien. */
+:global([data-mantine-color-scheme='dark']) .google {
+  border-color: #8e918f;
+  background: #131314;
+  color: #e3e3e3;
+}
+
+:global([data-mantine-color-scheme='dark']) .google:hover {
+  background: #1f1f20;
 }
 
 .google:focus-visible {
