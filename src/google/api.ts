@@ -3,7 +3,7 @@ export class AuthError extends Error {}
 async function googleFetch<T>(token: string, url: string): Promise<T> {
   const response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
   if (response.status === 401) {
-    throw new AuthError('Your Google session expired. Connect again.')
+    throw new AuthError('Your Google session expired. Sign in again.')
   }
   if (!response.ok) {
     const body = await response.json().catch(() => null)

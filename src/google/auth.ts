@@ -32,7 +32,7 @@ async function getTokenClient() {
       if (response.error) {
         current.reject(new Error(response.error_description ?? response.error))
       } else if (!google.accounts.oauth2.hasGrantedAllScopes(response, SCOPES[0], ...SCOPES.slice(1))) {
-        current.reject(new Error('Not all required permissions were granted. Connect again and accept all of them.'))
+        current.reject(new Error('Not all required permissions were granted. Sign in again and accept all of them.'))
       } else {
         current.resolve({
           value: response.access_token,

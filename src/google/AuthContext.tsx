@@ -46,7 +46,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async <T,>(call: (token: string) => Promise<T>): Promise<T> => {
       if (!token || token.expiresAt <= Date.now()) {
         setToken(null)
-        throw new AuthError('Your Google session expired. Connect again.')
+        throw new AuthError('Your Google session expired. Sign in again.')
       }
       try {
         return await call(token.value)

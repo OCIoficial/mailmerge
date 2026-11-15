@@ -1,0 +1,54 @@
+.wordmark {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--mantine-color-text);
+  text-decoration: none;
+}
+
+.mark {
+  flex: none;
+  color: var(--mantine-primary-color-filled);
+}
+
+.title {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1;
+}
+
+/* Botón según las reglas de marca de Google (variantes clara y oscura). */
+.google {
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid light-dark(#747775, #8e918f);
+  border-radius: 18px;
+  background: light-dark(#ffffff, #131314);
+  color: light-dark(#1f1f1f, #e3e3e3);
+  font-family: Roboto, var(--mantine-font-family);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.google:hover {
+  background: light-dark(#f2f2f2, #1f1f20);
+}
+
+.google:focus-visible {
+  outline: 2px solid var(--mantine-primary-color-filled);
+  outline-offset: 2px;
+}
+
+.google[data-disabled] {
+  opacity: 0.6;
+}
+
+.account {
+  border-radius: 50%;
+}
+
+.account:focus-visible {
+  outline: 2px solid var(--mantine-primary-color-filled);
+  outline-offset: 2px;
+}

@@ -56,7 +56,7 @@ function App() {
             </Alert>
           )}
           {auth.error && (
-            <Alert color="red" title="Could not connect to Google">
+            <Alert color="red" title="Could not sign in with Google">
               {auth.error}
             </Alert>
           )}

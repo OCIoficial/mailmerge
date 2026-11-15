@@ -80,7 +80,7 @@ export function SpreadsheetPanel({ dataset, onChange }: Props) {
         </Group>
         {!auth.token && (
           <Text size="sm" c="dimmed">
-            Connect your Google account to choose a spreadsheet.
+            Sign in with Google to choose a spreadsheet.
           </Text>
         )}
         {spreadsheet && (
