@@ -7,13 +7,15 @@ import { ADDRESS_FIELDS, type RenderedEmail } from '../merge/render.ts'
 interface Props {
   emails: RenderedEmail[]
   problemCount: number
+  /** Datos de ejemplo: solo se permite el envío de prueba. */
+  sample: boolean
 }
 
 function notImplemented() {
   notifications.show({ color: 'yellow', message: 'Sending is not implemented yet.' })
 }
 
-export function SendPanel({ emails, problemCount }: Props) {
+export function SendPanel({ emails, problemCount, sample }: Props) {
   const auth = useAuth()
   // null = aún no editado: se usa el correo de la cuenta conectada.
   const [testAddress, setTestAddress] = useState<string | null>(null)
@@ -39,9 +41,14 @@ export function SendPanel({ emails, problemCount }: Props) {
             Send test
           </Button>
         </Group>
-        <Button disabled={!auth.token || emails.length === 0 || problemCount > 0} onClick={notImplemented}>
+        <Button disabled={!auth.token || sample || emails.length === 0 || problemCount > 0} onClick={notImplemented}>
           Send {emails.length} emails
         </Button>
+        {sample && (
+          <Text size="sm" c="dimmed">
+            Sample data can't be sent to its recipients. Use Send test instead.
+          </Text>
+        )}
         {problemCount > 0 && (
           <Text size="sm" c="red">
             Fix the {problemCount} emails with problems before sending.

@@ -74,7 +74,7 @@ function App() {
                 <SpreadsheetPanel dataset={dataset} onChange={changeDataset} />
                 <TemplateEditor template={template} columns={dataset?.columns ?? []} onChange={updateTemplate} />
                 <AttachmentsPanel />
-                <SendPanel emails={emails} problemCount={problemCount} />
+                <SendPanel emails={emails} problemCount={problemCount} sample={Boolean(dataset?.sample)} />
               </Stack>
             </Grid.Col>
             <Grid.Col span={{ base: 12, md: 7 }}>
