@@ -137,7 +137,7 @@ function resolveAttachments(compiled: CompiledTemplate, row: Row, tree: Attachme
     email.attachments.push(...matches.map(toAttachment))
   })
 
-  const total = email.attachments.reduce((sum, attachment) => sum + (attachment.size ?? 0), 0)
+  const total = email.attachments.reduce((sum, attachment) => sum + attachment.size, 0)
   if (total > MAX_ATTACHMENTS_SIZE) {
     email.problems.push({ field: 'attachments', message: `${formatSize(total)} in total; Gmail allows up to 25 MB.` })
   }

@@ -1,4 +1,4 @@
-import { buildTree, type AttachmentTree, type TreeEntry } from '../attachments/tree.ts'
+import { buildTree, formatSize, type AttachmentTree, type TreeEntry } from '../attachments/tree.ts'
 import { AuthError } from './api.ts'
 
 const FOLDER = 'application/vnd.google-apps.folder'
@@ -51,25 +51,44 @@ async function listChildren(token: string, folderId: string): Promise<DriveFile[
   return files
 }
 
+/** Tope para el total de una carpeta: protege de elegir por error una carpeta enorme. */
+export const MAX_FOLDER_SIZE = 200 * 1024 * 1024
+
+/** Descargas en paralelo, como el listado de carpetas, para no exceder las cuotas de la API. */
+const CONCURRENCY = 5
+
+interface PendingFile {
+  path: string
+  id: string
+  mimeType: string
+  /** Archivo nativo de Google (Docs, Sheets, Slides) que se exporta a PDF. */
+  exportPdf: boolean
+  size: number
+}
+
+export type DriveTreeProgress =
+  | { phase: 'listing'; files: number }
+  | { phase: 'downloading'; done: number; total: number }
+
 /**
- * Lee el árbol completo de una carpeta (solo nombres y tamaños; el contenido se descarga al enviar).
- * Los atajos se siguen; los archivos nativos de Google que no se pueden exportar a PDF se omiten.
+ * Lee la carpeta completa y descarga todos sus archivos, para que los errores aparezcan al
+ * cargarla y no a mitad de un envío. Los atajos se siguen; los archivos nativos de Google
+ * que no se pueden exportar a PDF se omiten. Si algún archivo falla, se informan todos juntos.
  */
 export async function loadDriveTree(
   token: string,
   folder: { id: string; name: string },
-  onProgress?: (files: number) => void,
+  onProgress?: (progress: DriveTreeProgress) => void,
 ): Promise<AttachmentTree> {
-  const entries: TreeEntry[] = []
+  const pending: PendingFile[] = []
   const emptyDirs: string[] = []
   // Evita ciclos con atajos a carpetas que contienen al atajo.
   const visited = new Set<string>([folder.id])
   let queue = [{ id: folder.id, path: '' }]
 
   while (queue.length > 0) {
-    // Hasta 5 carpetas en paralelo para no exceder las cuotas de la API.
-    const batch = queue.slice(0, 5)
-    queue = queue.slice(5)
+    const batch = queue.slice(0, CONCURRENCY)
+    queue = queue.slice(CONCURRENCY)
     const results = await Promise.all(batch.map((dir) => listChildren(token, dir.id).then((files) => ({ dir, files }))))
 
     for (const { dir, files } of results) {
@@ -84,21 +103,54 @@ export async function loadDriveTree(
             queue.push({ id, path: `${path}/` })
           }
         } else if (mimeType.startsWith('application/vnd.google-apps.')) {
-          if (EXPORTABLE.has(mimeType)) {
-            entries.push({ path, size: null, source: { type: 'drive', id, mimeType, exportPdf: true } })
-          }
+          if (EXPORTABLE.has(mimeType)) pending.push({ path, id, mimeType, exportPdf: true, size: 0 })
         } else {
-          entries.push({
-            path,
-            size: file.size ? Number(file.size) : null,
-            source: { type: 'drive', id, mimeType, exportPdf: false },
-          })
+          pending.push({ path, id, mimeType, exportPdf: false, size: Number(file.size ?? 0) })
         }
       }
     }
-    onProgress?.(entries.length)
+    onProgress?.({ phase: 'listing', files: pending.length })
   }
 
+  // Los exportados no tienen tamaño hasta exportarlos; el tope cuenta solo los conocidos.
+  const knownSize = pending.reduce((sum, file) => sum + file.size, 0)
+  if (knownSize > MAX_FOLDER_SIZE) {
+    throw new Error(
+      `"${folder.name}" has ${formatSize(knownSize)} of files; the limit is ${formatSize(MAX_FOLDER_SIZE)}. Choose a smaller folder.`,
+    )
+  }
+
+  const entries: TreeEntry[] = []
+  const failures: string[] = []
+  let done = 0
+  onProgress?.({ phase: 'downloading', done, total: pending.length })
+  let next = 0
+  async function worker() {
+    while (next < pending.length) {
+      const file = pending[next++]
+      try {
+        const data = file.exportPdf
+          ? await exportDriveFileAsPdf(token, file.id)
+          : await downloadDriveFile(token, file.id)
+        entries.push(
+          file.exportPdf
+            ? { path: file.path, data, mimeType: 'application/pdf', filename: `${file.path.split('/').pop()}.pdf` }
+            : { path: file.path, data, mimeType: file.mimeType },
+        )
+      } catch (e) {
+        // Sin sesión no tiene sentido seguir: se pide iniciar sesión de nuevo.
+        if (e instanceof AuthError) throw e
+        failures.push(`${file.path}: ${(e as Error).message}`)
+      }
+      onProgress?.({ phase: 'downloading', done: ++done, total: pending.length })
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(CONCURRENCY, pending.length) }, worker))
+
+  if (failures.length > 0) {
+    const count = failures.length === 1 ? '1 file' : `${failures.length} files`
+    throw new Error([`Could not download ${count}:`, ...failures].join('\n'))
+  }
   return buildTree(folder.name, 'drive', entries, emptyDirs)
 }
 

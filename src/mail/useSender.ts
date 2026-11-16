@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { buildAttachment, type ContentCache } from '../attachments/resolve.ts'
+import { buildAttachment } from '../attachments/resolve.ts'
 import { AuthError } from '../google/api.ts'
 import { useAuth } from '../google/AuthContext.tsx'
 import type { RenderedEmail } from '../merge/render.ts'
@@ -38,9 +38,9 @@ export function useSender() {
 
   const run = auth.run
   const deliver = useCallback(
-    (fields: MessageFields, email: RenderedEmail, cache: ContentCache) =>
+    (fields: MessageFields, email: RenderedEmail) =>
       run(async (token) => {
-        const attachments = await Promise.all(email.attachments.map((a) => buildAttachment(a, token, cache)))
+        const attachments = await Promise.all(email.attachments.map(buildAttachment))
         await sendRawMessage(token, buildMessage(fields, attachments))
       }),
     [run],
@@ -54,7 +54,6 @@ export function useSender() {
       stopRequested.current = false
       setStopReason(null)
       setProgress({ done: 0, total: pending.length })
-      const cache: ContentCache = new Map()
 
       for (const [i, email] of pending.entries()) {
         if (stopRequested.current) {
@@ -64,7 +63,7 @@ export function useSender() {
         const started = Date.now()
         setStatus(email.index, { state: 'sending' })
         try {
-          await deliver({ ...email, html: email.body }, email, cache)
+          await deliver({ ...email, html: email.body }, email)
           setStatus(email.index, { state: 'sent', at: Date.now() })
         } catch (e) {
           const error = (e as Error).message
@@ -87,7 +86,7 @@ export function useSender() {
   const sendTest = useCallback(
     async (email: RenderedEmail, address: string) => {
       const fields: MessageFields = { to: address, cc: '', bcc: '', replyTo: email.replyTo, subject: `[Test] ${email.subject}`, html: email.body }
-      await deliver(fields, email, new Map())
+      await deliver(fields, email)
     },
     [deliver],
   )

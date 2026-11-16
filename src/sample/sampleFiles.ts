@@ -8,8 +8,7 @@ import { buildTree, type TreeEntry } from '../attachments/tree.ts'
 export function sampleFiles() {
   const encoder = new TextEncoder()
   const file = (path: string, text: string): TreeEntry => {
-    const data = encoder.encode(text)
-    return { path, size: data.length, source: { type: 'bytes', data } }
+    return { path, data: encoder.encode(text) }
   }
 
   const ruts = ['12345678-5', '9876543-3', '15234567-4', '20456789-1', '18765432-7', '7654321-6', '21345678-4', '16987654-1', '19876543-0']

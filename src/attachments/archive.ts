@@ -78,7 +78,7 @@ export async function readArchive(name: string, data: Uint8Array): Promise<Attac
 
   const entries: TreeEntry[] = Object.entries(files)
     .filter(([path]) => !path.endsWith('/') && !JUNK.test(path))
-    .map(([path, bytes]) => ({ path, size: bytes.length, source: { type: 'bytes', data: bytes } }))
+    .map(([path, data]) => ({ path, data }))
   dirs.push(...Object.keys(files).filter((path) => path.endsWith('/') && !JUNK.test(path)))
 
   return buildTree(name, 'archive', entries, dirs)

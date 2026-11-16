@@ -1,16 +1,17 @@
-/** De dónde se obtiene el contenido de un archivo al construir el adjunto. */
-export type FileSource =
-  | { type: 'bytes'; data: Uint8Array }
-  /** `exportPdf`: archivo nativo de Google (Docs, Sheets, Slides) que se exporta a PDF. */
-  | { type: 'drive'; id: string; mimeType: string; exportPdf: boolean }
-
+/**
+ * Archivo con su contenido ya descargado: el árbol completo se descarga al cargarlo, así
+ * los errores aparecen antes de enviar y al enviar no se descarga nada.
+ */
 export interface FileNode {
   kind: 'file'
   id: string
+  /** Nombre en el árbol; es el que usan las rutas de adjuntos. */
   name: string
-  /** Tamaño en bytes; null si no se conoce (archivos nativos de Google). */
-  size: number | null
-  source: FileSource
+  /** Nombre con el que se adjunta (un Google Doc exportado lleva ".pdf"). */
+  filename: string
+  mimeType: string
+  size: number
+  data: Uint8Array
 }
 
 export interface DirNode {
@@ -28,16 +29,39 @@ export interface AttachmentTree {
   origin: 'drive' | 'archive' | 'sample'
   root: DirNode
   fileCount: number
-  /** Suma de los tamaños conocidos. */
   totalSize: number
 }
 
 export interface TreeEntry {
   /** Ruta relativa a la raíz, separada por "/". */
   path: string
-  size: number | null
-  source: FileSource
+  data: Uint8Array
+  /** Si falta, se deduce de la extensión. */
+  mimeType?: string
+  /** Si falta, el nombre del archivo en la ruta. */
+  filename?: string
 }
+
+const MIME_TYPES: Record<string, string> = {
+  pdf: 'application/pdf',
+  txt: 'text/plain',
+  csv: 'text/csv',
+  html: 'text/html',
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  gif: 'image/gif',
+  zip: 'application/zip',
+  doc: 'application/msword',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  xls: 'application/vnd.ms-excel',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  ppt: 'application/vnd.ms-powerpoint',
+  pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+}
+
+const mimeTypeFromName = (name: string) =>
+  MIME_TYPES[name.split('.').pop()?.toLowerCase() ?? ''] ?? 'application/octet-stream'
 
 let nextId = 0
 const newId = () => `n${nextId++}`
@@ -65,8 +89,16 @@ export function buildTree(name: string, origin: AttachmentTree['origin'], entrie
     const segments = splitPath(entry.path)
     const fileName = segments.pop()
     if (!fileName) continue
-    dirAt(segments).children.push({ kind: 'file', id: newId(), name: fileName, size: entry.size, source: entry.source })
-    totalSize += entry.size ?? 0
+    dirAt(segments).children.push({
+      kind: 'file',
+      id: newId(),
+      name: fileName,
+      filename: entry.filename ?? fileName,
+      mimeType: entry.mimeType ?? mimeTypeFromName(fileName),
+      size: entry.data.length,
+      data: entry.data,
+    })
+    totalSize += entry.data.length
   }
 
   sortTree(root)
@@ -129,14 +161,9 @@ export function findPath(tree: AttachmentTree, path: string): TreeNode[] {
 export function filesIn(dir: DirNode, prefix = ''): { path: string; file: FileNode }[] {
   return dir.children.flatMap((child) =>
     child.kind === 'file'
-      ? [{ path: prefix + fileName(child), file: child }]
+      ? [{ path: prefix + child.filename, file: child }]
       : filesIn(child, `${prefix}${child.name}/`),
   )
-}
-
-/** Nombre con el que se adjunta el archivo (los nativos de Google se exportan a PDF). */
-export function fileName(file: FileNode): string {
-  return file.source.type === 'drive' && file.source.exportPdf ? `${file.name}.pdf` : file.name
 }
 
 export function formatSize(bytes: number | null): string {

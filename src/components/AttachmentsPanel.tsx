@@ -54,7 +54,15 @@ export function AttachmentsPanel({ tree, onTreeChange, paths, onPathsChange }: P
     load('Reading folder…', async () => {
       const folder = await auth.run(pickFolder)
       if (!folder) return null
-      return auth.run((token) => loadDriveTree(token, folder, (files) => setLoading(`Reading folder… ${files} files`)))
+      return auth.run((token) =>
+        loadDriveTree(token, folder, (progress) =>
+          setLoading(
+            progress.phase === 'listing'
+              ? `Reading folder… ${progress.files} files`
+              : `Downloading ${progress.done} of ${progress.total} files…`,
+          ),
+        ),
+      )
     })
 
   const fromDriveArchive = () =>
@@ -153,7 +161,10 @@ export function AttachmentsPanel({ tree, onTreeChange, paths, onPathsChange }: P
         )}
         {error && (
           <Notice tone="error" title="Could not load the files">
-            {error}
+            {/* Una línea por archivo que falló. */}
+            {error.split('\n').map((line, i) => (
+              <div key={i}>{line}</div>
+            ))}
           </Notice>
         )}
 
