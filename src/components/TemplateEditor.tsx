@@ -20,7 +20,7 @@ import { useLocalStorage } from '@mantine/hooks'
 import { useId, useRef, useState } from 'react'
 import type { Column } from '../merge/dataset.ts'
 import { HelpPopover, HelpRows, HelpSection } from './HelpPopover.tsx'
-import { useIsMobile } from '../useIsMobile.ts'
+import { useHasFinePointer } from '../media.ts'
 import { MarkdownEditor, type MarkdownEditorHandle } from './MarkdownEditor.tsx'
 import { FIELD_LABELS, type BodyFormat, type EmailTemplate, type TemplateField } from '../merge/template.ts'
 
@@ -46,8 +46,9 @@ export function TemplateEditor({ template, columns, onChange }: Props) {
   const markdownEditor = useRef<MarkdownEditorHandle>(null)
   // Preferencia personal, no del template: se guarda aparte.
   const [vim, setVim] = useLocalStorage({ key: 'mail-merge:vim', defaultValue: false, getInitialValueInEffect: false })
-  // Vim no sirve con teclado táctil: en el teléfono se apaga y no se ofrece (la preferencia se conserva).
-  const mobile = useIsMobile()
+  // Vim necesita teclado físico: sin mouse ni trackpad no se ofrece y queda apagado, aunque la
+  // preferencia se conserva (por ejemplo, al desconectar el teclado de una tablet).
+  const hasFinePointer = useHasFinePointer()
   const [target, setTarget] = useState<TemplateField>('body')
   const toId = useId()
   // Abiertos en esta sesión. Un campo con valor se muestra siempre, aunque no esté aquí:
@@ -194,7 +195,7 @@ export function TemplateEditor({ template, columns, onChange }: Props) {
               aria-label={FIELD_LABELS.body}
               placeholder={'Hi {{ name }},\n\nYour **balance** is {{ amount }}.'}
               value={template.markdown}
-              vim={vim && !mobile}
+              vim={vim && hasFinePointer}
               onFocus={() => setTarget('body')}
               onChange={(markdown) => onChange({ markdown })}
             />
@@ -269,14 +270,8 @@ export function TemplateEditor({ template, columns, onChange }: Props) {
                 )}
               </HelpPopover>
             </Group>
-            {template.format === 'markdown' && (
-              <Switch
-                visibleFrom="sm"
-                size="xs"
-                label="Vim"
-                checked={vim}
-                onChange={(event) => setVim(event.currentTarget.checked)}
-              />
+            {template.format === 'markdown' && hasFinePointer && (
+              <Switch size="xs" label="Vim" checked={vim} onChange={(event) => setVim(event.currentTarget.checked)} />
             )}
           </Group>
         </Stack>

@@ -19,7 +19,7 @@ import { DEFAULT_SHEET_SETTINGS, useSheetSettings } from './merge/sheetSettings.
 import { compileTemplate, renderEmail } from './merge/render.ts'
 import { EMPTY_TEMPLATE, type EmailTemplate } from './merge/template.ts'
 import { Notice } from './components/Notice.tsx'
-import { useIsMobile } from './useIsMobile.ts'
+import { useIsMobile } from './media.ts'
 
 /** La vista se guarda en la URL (#review), para que recargar deje al usuario donde estaba. */
 const viewFromHash = (): View => (window.location.hash === '#review' ? 'review' : 'edit')

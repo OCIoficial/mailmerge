@@ -23,7 +23,7 @@ import { PROBLEM_LABELS, type RenderedEmail } from '../merge/render.ts'
 import { FIELD_LABELS } from '../merge/template.ts'
 import { Notice, WarningIcon } from './Notice.tsx'
 import classes from './ReviewView.module.css'
-import { useIsMobile } from '../useIsMobile.ts'
+import { useIsMobile } from '../media.ts'
 
 interface Props {
   /** Todas las filas, también las excluidas (se muestran atenuadas). */

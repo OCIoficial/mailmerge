@@ -1,8 +1,8 @@
 import { Text } from '@mantine/core'
-import { useMediaQuery } from '@mantine/hooks'
 import { IconClipboard } from '@tabler/icons-react'
 import { useId, useState } from 'react'
 import { readPastedTable } from '../clipboard.ts'
+import { usePrimaryTouch } from '../media.ts'
 import classes from './PasteArea.module.css'
 
 interface Props {
@@ -21,7 +21,7 @@ const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigat
  */
 export function PasteArea({ onPaste, onError, compact }: Props) {
   const [focused, setFocused] = useState(false)
-  const touch = useMediaQuery('(pointer: coarse)')
+  const touch = usePrimaryTouch()
   const hintId = useId()
   const shortcut = isMac ? '⌘V' : 'Ctrl+V'
 
