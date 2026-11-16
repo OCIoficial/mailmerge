@@ -1,12 +1,13 @@
 import { Button, Card, Checkbox, Group, Select, Stack, Text, Title } from '@mantine/core'
-import { IconClipboard, IconFlask, IconRefresh, IconTable } from '@tabler/icons-react'
+import { IconFlask, IconRefresh, IconTable } from '@tabler/icons-react'
 import { useState, type ReactNode } from 'react'
-import { clipboardSpreadsheets } from '../clipboard.ts'
+import { pastedSpreadsheet } from '../clipboard.ts'
 import { useGoogle } from '../google/index.ts'
 import { toDataset, type Dataset } from '../merge/dataset.ts'
 import { sheetKey, type SheetSettingsStore } from '../merge/sheetSettings.ts'
 import type { Spreadsheet, SpreadsheetSource } from '../sources.ts'
 import { Notice } from './Notice.tsx'
+import { PasteArea } from './PasteArea.tsx'
 
 /** La planilla cargada y la fuente que la entrega, para cambiar de hoja o recargarla. */
 interface Loaded {
@@ -76,7 +77,7 @@ export function SpreadsheetPanel({ onChange, settings, children }: Props) {
     })
 
   const chooseFromGoogle = () => choose(async () => google.spreadsheets)
-  const chooseFromClipboard = () => choose(async () => clipboardSpreadsheets)
+  const chooseFromPaste = (rows: string[][]) => choose(async () => pastedSpreadsheet(rows))
   // Import dinámico dentro de DEV: el ejemplo no queda en el build de producción.
   const chooseSample = () => choose(async () => (await import('../sample/index.ts')).sampleSpreadsheets)
 
@@ -93,15 +94,6 @@ export function SpreadsheetPanel({ onChange, settings, children }: Props) {
           >
             {spreadsheet ? 'Change spreadsheet' : 'Choose spreadsheet'}
           </Button>
-          {/* No necesita Google: las celdas vienen del portapapeles. */}
-          <Button
-            variant="default"
-            leftSection={<IconClipboard size={16} />}
-            onClick={chooseFromClipboard}
-            disabled={loading}
-          >
-            Paste from clipboard
-          </Button>
           {import.meta.env.DEV && (
             <Button
               variant="light"
@@ -116,14 +108,16 @@ export function SpreadsheetPanel({ onChange, settings, children }: Props) {
         </Group>
         {!google.signedIn && !spreadsheet && (
           <Text size="sm" c="dimmed">
-            Sign in with Google to choose a spreadsheet, or copy cells in one and paste them here.
+            Sign in with Google to choose a spreadsheet, or paste cells below.
           </Text>
         )}
+        {/* No necesita Google: las celdas vienen del portapapeles. */}
+        <PasteArea onPaste={chooseFromPaste} onError={setError} compact={spreadsheet !== null} />
         {spreadsheet && (
           <>
             <Group gap="xs">
               <Text fw={500}>{spreadsheet.title}</Text>
-              {sheet && (
+              {sheet && loaded?.source.canReload && (
                 <Button
                   size="compact-sm"
                   variant="subtle"

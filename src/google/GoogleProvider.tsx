@@ -73,6 +73,7 @@ export function GoogleProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo((): Google => {
     const spreadsheets: SpreadsheetSource = {
+      canReload: true,
       async pick() {
         const picked = await run(pickSpreadsheet)
         return picked && run((token) => getSpreadsheet(token, picked.id))

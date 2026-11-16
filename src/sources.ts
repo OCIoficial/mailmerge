@@ -12,6 +12,8 @@ export interface Spreadsheet {
 }
 
 export interface SpreadsheetSource {
+  /** Si volver a cargar una hoja puede traer datos nuevos (no en lo pegado: no hay de dónde recargar). */
+  canReload: boolean
   /** Deja elegir una planilla; null si se cancela. */
   pick(): Promise<Spreadsheet | null>
   /** Filas de una hoja, como strings, sin celdas vacías al final. */

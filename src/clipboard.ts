@@ -64,43 +64,26 @@ function trimRows(rows: string[][]): string[][] {
   })
 }
 
-async function readClipboardTable(): Promise<string[][]> {
-  if (!navigator.clipboard) throw new Error("This browser doesn't allow reading the clipboard here.")
-  let html: string | null = null
-  let text: string | null = null
-  try {
-    // Algunos navegadores solo tienen readText: sin HTML, se usa el texto separado por tabs.
-    if (typeof navigator.clipboard.read === 'function') {
-      for (const item of await navigator.clipboard.read()) {
-        if (item.types.includes('text/html')) html ??= await (await item.getType('text/html')).text()
-        if (item.types.includes('text/plain')) text ??= await (await item.getType('text/plain')).text()
-      }
-    } else {
-      text = await navigator.clipboard.readText()
-    }
-  } catch (e) {
-    if (e instanceof DOMException && e.name === 'NotAllowedError') {
-      throw new Error('The browser blocked reading the clipboard. Allow it for this page and try again.')
-    }
-    throw e
-  }
-  const rows = trimRows((html ? parseHtmlTable(html) : null) ?? (text ? parseTsv(text) : []))
+/**
+ * Celdas de un pegado. Se usa el evento paste (no navigator.clipboard): no pide permisos y
+ * funciona igual en el teléfono, con "Pegar" del menú del sistema.
+ */
+export function readPastedTable(data: DataTransfer): string[][] {
+  const html = data.getData('text/html')
+  const text = data.getData('text/plain')
+  const rows = trimRows((html ? parseHtmlTable(html) : null) ?? parseTsv(text))
   if (!rows.some((cells) => cells.length > 0)) {
-    throw new Error('The clipboard has no cells. Select and copy cells in a spreadsheet first.')
+    throw new Error('Nothing to paste. Select and copy cells in a spreadsheet first.')
   }
   return rows
 }
 
-/**
- * Planilla pegada desde el portapapeles: una sola hoja, sin Google. Cargar la hoja lee el
- * portapapeles, así "Reload" pega de nuevo lo que se haya copiado después.
- */
-export const clipboardSpreadsheets: SpreadsheetSource = {
-  async pick() {
-    // Se lee aquí para que un portapapeles vacío no reemplace la planilla ya cargada.
-    await readClipboardTable()
+/** Planilla pegada: una sola hoja, sin Google. No se recarga: no hay de dónde. */
+export function pastedSpreadsheet(rows: string[][]): SpreadsheetSource {
+  return {
+    canReload: false,
     // Id fijo: el encabezado y la normalización de lo pegado se recuerdan entre pegados.
-    return { id: 'clipboard', title: 'Pasted from clipboard', sheets: ['Pasted'] }
-  },
-  loadSheet: () => readClipboardTable(),
+    pick: async () => ({ id: 'clipboard', title: 'Pasted cells', sheets: ['Pasted'] }),
+    loadSheet: async () => rows,
+  }
 }
