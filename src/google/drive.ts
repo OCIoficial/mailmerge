@@ -1,4 +1,4 @@
-import { buildTree, formatSize, type AttachmentTree, type TreeEntry } from '../attachments/tree.ts'
+import { buildTree, fileNode, formatSize, type AttachmentTree, type FileNode, type TreeEntry } from '../attachments/tree.ts'
 import { AuthError } from './api.ts'
 
 const FOLDER = 'application/vnd.google-apps.folder'
@@ -205,4 +205,24 @@ export async function exportDriveFileAsPdf(token: string, id: string): Promise<U
     `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(id)}/export?mimeType=application%2Fpdf`,
   )
   return new Uint8Array(await response.arrayBuffer())
+}
+
+/**
+ * Descarga un archivo suelto: los nativos de Google se exportan a PDF, como en las carpetas.
+ * Con onBytes, informa el avance de la descarga (los exportados no tienen tamaño previo).
+ */
+export async function loadDriveFile(
+  token: string,
+  file: { id: string; name: string; mimeType: string },
+  onBytes?: (received: number, total: number | undefined) => void,
+): Promise<FileNode> {
+  if (file.mimeType === FOLDER) throw new Error(`"${file.name}" is a folder.`)
+  if (file.mimeType.startsWith('application/vnd.google-apps.')) {
+    if (!EXPORTABLE.has(file.mimeType)) throw new Error(`"${file.name}" can't be exported to PDF.`)
+    const data = await exportDriveFileAsPdf(token, file.id)
+    return fileNode(file.name, data, 'application/pdf', `${file.name}.pdf`)
+  }
+  const total = (await getDriveFileSize(token, file.id)) ?? undefined
+  const data = await downloadDriveFile(token, file.id, onBytes && ((received) => onBytes(received, total)))
+  return fileNode(file.name, data, file.mimeType)
 }

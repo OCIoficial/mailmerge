@@ -4,4 +4,4 @@
  */
 export { AuthError } from './api.ts'
 export { SendLimitError, UnconfirmedSendError } from './gmail.ts'
-export { GoogleProvider, useGoogle, type Google } from './GoogleProvider.tsx'
+export { GoogleProvider, useGoogle, type Drive, type Google } from './GoogleProvider.tsx'

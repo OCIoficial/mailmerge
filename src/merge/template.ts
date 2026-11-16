@@ -12,18 +12,6 @@ export interface EmailTemplate {
   markdown: string
   /** HTML generado por el editor de texto enriquecido. */
   body: string
-  /** Rutas de adjuntos (con variables y comodines), relativas al árbol cargado. */
-  attachments: AttachmentPath[]
-}
-
-/** Una ruta = un adjunto. */
-export interface AttachmentPath {
-  /** "/" es todo lo cargado. Con comodines, lo que calce va en un solo ZIP. */
-  path: string
-  /** Nombre del adjunto, con variables; vacío = automático. */
-  name: string
-  /** Si es obligatorio, que no se encuentre es un problema; si no, el correo sale sin ese adjunto. */
-  required: boolean
 }
 
 /** Campos que se renderizan en cada correo. */
@@ -47,5 +35,4 @@ export const EMPTY_TEMPLATE: EmailTemplate = {
   format: 'markdown',
   markdown: '',
   body: '<p></p>',
-  attachments: [],
 }

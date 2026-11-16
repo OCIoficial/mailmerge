@@ -1,6 +1,5 @@
-import { Button, ScrollArea, Text } from '@mantine/core'
-import { IconX } from '@tabler/icons-react'
-import { useState, type CSSProperties } from 'react'
+import { ScrollArea, Text } from '@mantine/core'
+import { useState, type CSSProperties, type ReactNode } from 'react'
 import { filesIn, formatSize, type AttachmentTree, type TreeNode } from '../attachments/tree.ts'
 import classes from './FileTree.module.css'
 
@@ -97,11 +96,16 @@ function Nodes({ nodes, level, expanded, onToggle }: NodesProps) {
 
 interface Props {
   tree: AttachmentTree
-  onRemove: () => void
+  /** Antes del nombre (la manija para reordenar). */
+  leading?: ReactNode
+  /** Botones a la derecha del encabezado. */
+  actions?: ReactNode
+  /** Debajo del árbol, en el mismo recuadro (las rutas de la fuente). */
+  children?: ReactNode
 }
 
 /** Explorador del árbol cargado. Montarlo con `key` por árbol para reiniciar las carpetas abiertas. */
-export function FileTree({ tree, onRemove }: Props) {
+export function FileTree({ tree, leading, actions, children }: Props) {
   // Las carpetas de primer nivel empiezan abiertas.
   const [expanded, setExpanded] = useState(
     () => new Set(tree.root.children.filter((node) => node.kind === 'dir').map((node) => node.id)),
@@ -115,16 +119,15 @@ export function FileTree({ tree, onRemove }: Props) {
 
   return (
     <div className={classes.browser}>
-      <div className={classes.header}>
+      <div className={classes.header} data-leading={leading ? true : undefined}>
+        {leading}
         <Text size="sm" fw={500} truncate style={{ flex: 1, minWidth: 0 }} title={tree.name}>
           {tree.name}
         </Text>
         <Text size="xs" c="dimmed" style={{ flex: 'none', fontVariantNumeric: 'tabular-nums' }}>
           {tree.fileCount} files, {formatSize(tree.totalSize)}
         </Text>
-        <Button size="compact-sm" variant="subtle" color="gray" leftSection={<IconX size={14} />} onClick={onRemove}>
-          Remove
-        </Button>
+        {actions}
       </div>
 
       {/* offsetScrollbars reserva espacio para la barra, para que no tape los tamaños. */}
@@ -137,6 +140,7 @@ export function FileTree({ tree, onRemove }: Props) {
           <Nodes nodes={tree.root.children} level={0} expanded={expanded} onToggle={toggle} />
         )}
       </ScrollArea.Autosize>
+      {children && <div className={classes.footer}>{children}</div>}
     </div>
   )
 }

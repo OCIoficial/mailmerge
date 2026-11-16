@@ -1,3 +1,4 @@
+import { LruCache } from '../attachments/cache.ts'
 import type { AttachmentContent } from '../attachments/resolve.ts'
 import { splitAddresses } from '../merge/render.ts'
 
@@ -12,6 +13,21 @@ export function base64Lines(bytes: Uint8Array): string {
     binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000))
   }
   return (btoa(binary).match(/.{1,76}/g) ?? []).join(CRLF)
+}
+
+/**
+ * Base64 de los adjuntos, por contenido: un adjunto común a todos los correos se codifica una
+ * vez, no una por destinatario.
+ */
+const base64Cache = new LruCache<Uint8Array, string>(96 * 1024 * 1024, (text) => text.length)
+
+function attachmentBase64(data: Uint8Array): string {
+  let encoded = base64Cache.get(data)
+  if (encoded === undefined) {
+    encoded = base64Lines(data)
+    base64Cache.set(data, encoded)
+  }
+  return encoded
 }
 
 const isAscii = (text: string) => /^[\x20-\x7e]*$/.test(text)
@@ -122,7 +138,7 @@ export function buildMessage(fields: MessageFields, attachments: AttachmentConte
       `Content-Disposition: attachment;${CRLF} filename=${name};${CRLF} filename*=${extended}`,
       'Content-Transfer-Encoding: base64',
       '',
-      base64Lines(attachment.data),
+      attachmentBase64(attachment.data),
     )
   }
   parts.push(`--${mixed}--`, '')

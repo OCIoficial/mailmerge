@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { AttachmentTree } from './attachments/tree.ts'
+import type { PathSource, SharedAttachment } from './attachments/model.ts'
 import type { Dataset } from './merge/dataset.ts'
 import { normalizeDataset, type Normalization, type NormalizedDataset } from './merge/normalize.ts'
 import { compileTemplate, renderEmail, type CompiledTemplate, type RenderedEmail } from './merge/render.ts'
@@ -39,8 +39,10 @@ interface State {
   datasetVersion: number
   /** Filas que no se envían, por índice. */
   excluded: Set<number>
-  /** Archivos para los adjuntos; no se guarda entre sesiones. */
-  tree: AttachmentTree | null
+  /** Adjuntos que van en todos los correos; no se guardan entre sesiones (ni sus nombres). */
+  shared: SharedAttachment[]
+  /** Carpetas o archivos comprimidos con sus rutas; no se guardan entre sesiones (ni sus rutas). */
+  sources: PathSource[]
 
   // Derivados: se recalculan en las acciones, nunca en los componentes.
   normalized: NormalizedDataset | null
@@ -103,12 +105,10 @@ function withIncluded(state: Pick<State, 'allEmails' | 'excluded'>) {
   return { emails, problemCount: emails.filter((email) => email.problems.length > 0).length }
 }
 
-function withEmails(state: Pick<State, 'template' | 'normalized' | 'tree' | 'excluded'>) {
-  const compiled = compileTemplate(state.template)
+function withEmails(state: Pick<State, 'template' | 'normalized' | 'shared' | 'sources' | 'excluded'>) {
+  const compiled = compileTemplate(state.template, state)
   const allEmails =
-    compiled.errors.length > 0
-      ? []
-      : (state.normalized?.rows ?? []).map((row, i) => renderEmail(compiled, row, i, state.tree))
+    compiled.errors.length > 0 ? [] : (state.normalized?.rows ?? []).map((row, i) => renderEmail(compiled, row, i))
   return { compiled, allEmails, ...withIncluded({ allEmails, excluded: state.excluded }) }
 }
 
@@ -118,7 +118,13 @@ function withNormalized(state: Pick<State, 'dataset' | 'sheetSettings'>) {
 
 // --- Store --------------------------------------------------------------------------------------
 
-const initialTemplate = { ...EMPTY_TEMPLATE, ...load<Partial<EmailTemplate>>(TEMPLATE_KEY, {}) }
+/** Lo guardado antes puede traer rutas de adjuntos: ahora viven con su fuente y no se guardan. */
+function loadTemplate(): EmailTemplate {
+  const { attachments: _, ...saved } = load<Partial<EmailTemplate> & { attachments?: unknown }>(TEMPLATE_KEY, {})
+  return { ...EMPTY_TEMPLATE, ...saved }
+}
+
+const initialTemplate = loadTemplate()
 
 export const useStore = create<State>()(() => ({
   template: initialTemplate,
@@ -126,9 +132,10 @@ export const useStore = create<State>()(() => ({
   dataset: null,
   datasetVersion: 0,
   excluded: new Set(),
-  tree: null,
+  shared: [],
+  sources: [],
   normalized: null,
-  ...withEmails({ template: initialTemplate, normalized: null, tree: null, excluded: new Set() }),
+  ...withEmails({ template: initialTemplate, normalized: null, shared: [], sources: [], excluded: new Set() }),
   statuses: new Map(),
   progress: null,
   stopReason: null,
@@ -155,11 +162,15 @@ export function flushEmails() {
   if (emailsTimer !== undefined) recomputeEmailsNow()
 }
 
+function recomputeEmailsSoon() {
+  clearTimeout(emailsTimer)
+  emailsTimer = setTimeout(recomputeEmailsNow, EMAILS_DELAY)
+}
+
 export function updateTemplate(patch: Partial<EmailTemplate>) {
   set((state) => ({ template: { ...state.template, ...patch } }))
   save(TEMPLATE_KEY, get().template)
-  clearTimeout(emailsTimer)
-  emailsTimer = setTimeout(recomputeEmailsNow, EMAILS_DELAY)
+  recomputeEmailsSoon()
 }
 
 /** Planilla nueva: las filas excluidas y el estado de envío dejan de corresponder a las mismas filas. */
@@ -199,8 +210,28 @@ export function setExcluded(excluded: Set<number>) {
   set((state) => ({ excluded, ...withIncluded({ allEmails: state.allEmails, excluded }) }))
 }
 
-export function setTree(tree: AttachmentTree | null) {
-  set((state) => ({ tree, ...withEmails({ ...state, tree }) }))
+/**
+ * Cambia los adjuntos. Al escribir (nombres, rutas) los correos se regeneran al dejar de
+ * escribir; al agregar, quitar o reordenar, de inmediato.
+ */
+function setAttachments(patch: Partial<Pick<State, 'shared' | 'sources'>>, typing: boolean) {
+  if (typing) {
+    set(patch)
+    recomputeEmailsSoon()
+  } else {
+    clearTimeout(emailsTimer)
+    emailsTimer = undefined
+    set((state) => ({ ...patch, ...withEmails({ ...state, ...patch }) }))
+  }
+}
+
+/** Con una función, porque una carga puede terminar después de otros cambios. */
+export function updateShared(update: (shared: SharedAttachment[]) => SharedAttachment[], { typing = false } = {}) {
+  setAttachments({ shared: update(get().shared) }, typing)
+}
+
+export function updateSources(update: (sources: PathSource[]) => PathSource[], { typing = false } = {}) {
+  setAttachments({ sources: update(get().sources) }, typing)
 }
 
 // Envío: el estado vive aquí; la lógica de envío está en mail/sending.ts.

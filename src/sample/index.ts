@@ -1,5 +1,4 @@
-import type { FileSource, SpreadsheetSource } from '../sources.ts'
-import { sampleFiles } from './sampleFiles.ts'
+import type { SpreadsheetSource } from '../sources.ts'
 import { SAMPLE_SPREADSHEET } from './sampleSpreadsheet.ts'
 
 /**
@@ -12,6 +11,4 @@ export const sampleSpreadsheets: SpreadsheetSource = {
   loadSheet: async (_spreadsheet, sheet) => SAMPLE_SPREADSHEET.sheets[sheet] ?? [],
 }
 
-export const sampleFileSource: FileSource = {
-  pick: async () => sampleFiles(),
-}
+export { sampleFiles, sampleSharedFile } from './sampleFiles.ts'

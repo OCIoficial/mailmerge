@@ -1,5 +1,3 @@
-import type { AttachmentTree } from './attachments/tree.ts'
-
 /**
  * De dónde salen los datos. Google (src/google) y los datos de ejemplo (src/sample) implementan
  * las mismas interfaces, así los componentes no saben de dónde vienen.
@@ -30,7 +28,13 @@ export interface LoadProgress {
   unit?: 'bytes' | 'files'
 }
 
-export interface FileSource {
-  /** Deja elegir y carga el árbol completo, con el contenido de cada archivo; null si se cancela. */
-  pick(onProgress: (progress: LoadProgress) => void): Promise<AttachmentTree | null>
-}
+/** Un archivo o carpeta de Drive elegido; con esto se vuelve a descargar ("Reload"). */
+export type DriveOrigin =
+  | { kind: 'drive-folder'; id: string; name: string }
+  | { kind: 'drive-archive'; id: string; name: string }
+  | { kind: 'drive-file'; id: string; name: string; mimeType: string }
+
+/** De dónde salieron los archivos de un adjunto o de una fuente de rutas. */
+export type Origin = { kind: 'upload' } | { kind: 'sample' } | DriveOrigin
+
+export const isDriveOrigin = (origin: Origin): origin is DriveOrigin => origin.kind.startsWith('drive-')

@@ -1,4 +1,4 @@
-import { buildTree, type TreeEntry } from '../attachments/tree.ts'
+import { buildTree, fileNode, type TreeEntry } from '../attachments/tree.ts'
 
 /**
  * Árbol de archivos de ejemplo para probar los adjuntos sin Google (solo en desarrollo).
@@ -23,4 +23,9 @@ export function sampleFiles() {
   entries.push(file('Reglamento interno 2026.txt', 'Reglamento interno\n'))
 
   return buildTree('Documentos colegio (sample)', entries)
+}
+
+/** Un archivo de ejemplo para adjuntar a todos los correos. */
+export function sampleSharedFile() {
+  return fileNode('Calendario escolar 2026.txt', new TextEncoder().encode('Calendario escolar 2026\n'))
 }

@@ -1,5 +1,6 @@
 import { zip } from 'fflate'
-import { filesIn, type AttachmentTree, type FileNode, type PathMatch } from './tree.ts'
+import { LruCache } from './cache.ts'
+import { fileNode, filesIn, type AttachmentTree, type FileNode, type PathMatch } from './tree.ts'
 
 /** Límite de Gmail para el total de adjuntos de un correo. */
 export const MAX_ATTACHMENTS_SIZE = 25 * 1024 * 1024
@@ -25,11 +26,6 @@ const ARCHIVE_EXTENSION = /\.(zip|tar\.gz|tgz|tar|gz)$/i
 /** Nombre de lo cargado, como ZIP: "documentos.zip" (archivo subido) o "Documentos.zip" (carpeta de Drive). */
 export function treeZipName(tree: AttachmentTree): string {
   return `${tree.name.replace(ARCHIVE_EXTENSION, '')}.zip`
-}
-
-/** La ruta "/": todo lo cargado en un ZIP. */
-export function wholeTreeAttachment(tree: AttachmentTree): ResolvedAttachment {
-  return zipOf(treeZipName(tree), filesIn(tree.root))
 }
 
 /**
@@ -87,11 +83,33 @@ export interface AttachmentContent {
   data: Uint8Array
 }
 
+/**
+ * ZIPs ya comprimidos, por contenido (rutas y archivos). Un ZIP que se repite en todos los correos
+ * se comprime una vez; los que son de un solo correo van saliendo del caché.
+ */
+const zipCache = new LruCache<string, Uint8Array>(64 * 1024 * 1024, (data) => data.length)
+
+async function zipEntries(entries: ZipEntry[]): Promise<Uint8Array> {
+  const key = entries.map(({ path, file }) => `${file.id}\u0000${path}`).join('\u0001')
+  const cached = zipCache.get(key)
+  if (cached) return cached
+  const data = await zipAsync(Object.fromEntries(entries.map(({ path, file }) => [path, file.data])))
+  zipCache.set(key, data)
+  return data
+}
+
 /** Arma el adjunto con el contenido ya cargado en el árbol; un ZIP se comprime aquí. */
 export async function buildAttachment(attachment: ResolvedAttachment): Promise<AttachmentContent> {
   if (attachment.kind === 'file') {
     return { filename: attachment.filename, mimeType: attachment.file.mimeType, data: attachment.file.data }
   }
-  const files = Object.fromEntries(attachment.entries.map(({ path, file }) => [path, file.data]))
-  return { filename: attachment.filename, mimeType: 'application/zip', data: await zipAsync(files) }
+  return { filename: attachment.filename, mimeType: 'application/zip', data: await zipEntries(attachment.entries) }
+}
+
+/** Todo un árbol como un solo archivo ZIP (una carpeta de Drive adjunta a todos los correos). */
+export async function zipTree(tree: AttachmentTree): Promise<FileNode> {
+  const entries = filesIn(tree.root)
+  if (entries.length === 0) throw new Error(`"${tree.name}" has no files.`)
+  const files = Object.fromEntries(entries.map(({ path, file }) => [path, file.data]))
+  return fileNode(treeZipName(tree), await zipAsync(files), 'application/zip')
 }

@@ -59,11 +59,24 @@ const MIME_TYPES: Record<string, string> = {
   pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
 }
 
-const mimeTypeFromName = (name: string) =>
+export const mimeTypeFromName = (name: string) =>
   MIME_TYPES[name.split('.').pop()?.toLowerCase() ?? ''] ?? 'application/octet-stream'
 
 let nextId = 0
 const newId = () => `n${nextId++}`
+
+/** Un archivo suelto (o dentro de un árbol). Sin mimeType, se deduce de la extensión. */
+export function fileNode(name: string, data: Uint8Array, mimeType?: string, filename = name): FileNode {
+  return {
+    kind: 'file',
+    id: newId(),
+    name,
+    filename,
+    mimeType: mimeType || mimeTypeFromName(filename),
+    size: data.length,
+    data,
+  }
+}
 
 /** Arma el árbol a partir de una lista plana de archivos; las carpetas se crean según las rutas. */
 export function buildTree(name: string, entries: TreeEntry[], emptyDirs: string[] = []): AttachmentTree {
@@ -88,15 +101,7 @@ export function buildTree(name: string, entries: TreeEntry[], emptyDirs: string[
     const segments = splitPath(entry.path)
     const fileName = segments.pop()
     if (!fileName) continue
-    dirAt(segments).children.push({
-      kind: 'file',
-      id: newId(),
-      name: fileName,
-      filename: entry.filename ?? fileName,
-      mimeType: entry.mimeType ?? mimeTypeFromName(fileName),
-      size: entry.data.length,
-      data: entry.data,
-    })
+    dirAt(segments).children.push(fileNode(fileName, entry.data, entry.mimeType, entry.filename ?? fileName))
     totalSize += entry.data.length
   }
 

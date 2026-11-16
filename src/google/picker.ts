@@ -13,13 +13,19 @@ function loadPicker() {
 export interface PickedFile {
   id: string
   name: string
+  mimeType: string
 }
 
-/** Abre Google Picker con una vista. Devuelve null si el usuario cancela. */
-async function pick(token: string, title: string, view: google.picker.DocsView): Promise<PickedFile | null> {
+/** Abre Google Picker con una vista. Devuelve lo elegido, o null si el usuario cancela. */
+async function pickMany(
+  token: string,
+  title: string,
+  view: google.picker.DocsView,
+  multiple = false,
+): Promise<PickedFile[] | null> {
   await loadPicker()
   return new Promise((resolve) => {
-    const picker = new google.picker.PickerBuilder()
+    const builder = new google.picker.PickerBuilder()
       .addView(view)
       .setOAuthToken(token)
       .setDeveloperKey(googleConfig.apiKey)
@@ -29,19 +35,25 @@ async function pick(token: string, title: string, view: google.picker.DocsView):
       .setCallback((data) => {
         const action = data[google.picker.Response.ACTION]
         if (action === google.picker.Action.PICKED) {
-          const doc = data[google.picker.Response.DOCUMENTS]?.[0]
+          const docs = data[google.picker.Response.DOCUMENTS] ?? []
           resolve(
-            doc
-              ? { id: doc[google.picker.Document.ID] ?? '', name: doc[google.picker.Document.NAME] ?? '' }
-              : null,
+            docs.map((doc) => ({
+              id: doc[google.picker.Document.ID] ?? '',
+              name: doc[google.picker.Document.NAME] ?? '',
+              mimeType: doc[google.picker.Document.MIME_TYPE] ?? '',
+            })),
           )
         } else if (action === google.picker.Action.CANCEL) {
           resolve(null)
         }
       })
-      .build()
-    picker.setVisible(true)
+    if (multiple) builder.enableFeature(google.picker.Feature.MULTISELECT_ENABLED)
+    builder.build().setVisible(true)
   })
+}
+
+async function pick(token: string, title: string, view: google.picker.DocsView): Promise<PickedFile | null> {
+  return (await pickMany(token, title, view))?.[0] ?? null
 }
 
 // Las vistas usan google.picker, que existe recién después de cargar el script.
@@ -76,4 +88,14 @@ export async function pickArchive(token: string) {
     .setMimeTypes(ARCHIVE_TYPES.join(','))
     .setMode(google.picker.DocsViewMode.LIST)
   return pick(token, 'Choose a ZIP or TAR.GZ file', view)
+}
+
+/** Cualquier archivo (no carpetas), varios a la vez. */
+export async function pickFiles(token: string) {
+  await loadPicker()
+  const view = new google.picker.DocsView(google.picker.ViewId.DOCS)
+    .setIncludeFolders(true)
+    .setSelectFolderEnabled(false)
+    .setMode(google.picker.DocsViewMode.LIST)
+  return pickMany(token, 'Choose files to attach to every email', view, true)
 }
