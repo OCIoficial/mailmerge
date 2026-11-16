@@ -1,4 +1,4 @@
-import { Button, Card, Checkbox, FileButton, Group, Select, Stack, Text, Title } from '@mantine/core'
+import { Button, Card, Checkbox, FileButton, Group, Select, SimpleGrid, Stack, Text, Title } from '@mantine/core'
 import { IconFlask, IconRefresh, IconTable, IconUpload } from '@tabler/icons-react'
 import { useState, type ReactNode } from 'react'
 import { pastedSpreadsheet } from '../clipboard.ts'
@@ -87,35 +87,48 @@ export function SpreadsheetPanel({ onChange, settings, children }: Props) {
     <Card withBorder h="100%">
       <Stack gap="sm">
         <Title order={4}>1. Spreadsheet</Title>
-        <Group gap="sm">
-          <Button
-            leftSection={<IconTable size={16} />}
-            onClick={chooseFromGoogle}
-            loading={loading && !spreadsheet}
-            disabled={!google.signedIn}
-          >
-            {spreadsheet ? 'Change spreadsheet' : 'Choose spreadsheet'}
-          </Button>
-          {/* CSV, Excel o LibreOffice; no necesita Google. */}
-          <FileButton onChange={chooseFromFile} accept={SPREADSHEET_ACCEPT}>
-            {(props) => (
-              <Button variant="default" leftSection={<IconUpload size={16} />} disabled={loading} {...props}>
-                Upload file
-              </Button>
-            )}
-          </FileButton>
-          {import.meta.env.DEV && (
+        {/* Como en Attachments: mismo ancho, en fila si la tarjeta es ancha y apilados si no.
+            Se mide la tarjeta (container query), no la pantalla. */}
+        <div style={{ containerType: 'inline-size' }}>
+          <SimpleGrid type="container" cols={{ base: 1, '420px': 2 }} spacing="xs">
             <Button
-              variant="light"
-              color="grape"
-              leftSection={<IconFlask size={16} />}
-              onClick={chooseSample}
-              disabled={loading}
+              fullWidth
+              leftSection={<IconTable size={16} />}
+              onClick={chooseFromGoogle}
+              loading={loading && !spreadsheet}
+              disabled={!google.signedIn}
             >
-              Use sample data
+              {spreadsheet ? 'Change spreadsheet' : 'Choose spreadsheet'}
             </Button>
-          )}
-        </Group>
+            {/* CSV, Excel o LibreOffice; no necesita Google. */}
+            <FileButton onChange={chooseFromFile} accept={SPREADSHEET_ACCEPT}>
+              {(props) => (
+                <Button
+                  variant="default"
+                  fullWidth
+                  leftSection={<IconUpload size={16} />}
+                  disabled={loading}
+                  {...props}
+                >
+                  Upload file
+                </Button>
+              )}
+            </FileButton>
+          </SimpleGrid>
+        </div>
+        {/* Solo en desarrollo; aparte, para no mezclarlo con las fuentes reales. */}
+        {import.meta.env.DEV && (
+          <Button
+            variant="light"
+            fullWidth
+            color="grape"
+            leftSection={<IconFlask size={16} />}
+            onClick={chooseSample}
+            disabled={loading}
+          >
+            Use sample data
+          </Button>
+        )}
         {!google.signedIn && !spreadsheet && (
           <Text size="sm" c="dimmed">
             Sign in with Google to choose a spreadsheet. Uploading a file or pasting cells works without it.
