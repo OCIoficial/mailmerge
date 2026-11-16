@@ -1,7 +1,8 @@
-import { Button, Card, Checkbox, Group, Select, Stack, Text, Title } from '@mantine/core'
-import { IconFlask, IconRefresh, IconTable } from '@tabler/icons-react'
+import { Button, Card, Checkbox, FileButton, Group, Select, Stack, Text, Title } from '@mantine/core'
+import { IconFlask, IconRefresh, IconTable, IconUpload } from '@tabler/icons-react'
 import { useState, type ReactNode } from 'react'
 import { pastedSpreadsheet } from '../clipboard.ts'
+import { fileSpreadsheet, SPREADSHEET_ACCEPT } from '../fileSpreadsheet.ts'
 import { useGoogle } from '../google/index.ts'
 import { toDataset, type Dataset } from '../merge/dataset.ts'
 import { sheetKey, type SheetSettingsStore } from '../merge/sheetSettings.ts'
@@ -78,6 +79,7 @@ export function SpreadsheetPanel({ onChange, settings, children }: Props) {
 
   const chooseFromGoogle = () => choose(async () => google.spreadsheets)
   const chooseFromPaste = (rows: string[][]) => choose(async () => pastedSpreadsheet(rows))
+  const chooseFromFile = (file: File | null) => file && choose(() => fileSpreadsheet(file))
   // Import dinámico dentro de DEV: el ejemplo no queda en el build de producción.
   const chooseSample = () => choose(async () => (await import('../sample/index.ts')).sampleSpreadsheets)
 
@@ -94,6 +96,14 @@ export function SpreadsheetPanel({ onChange, settings, children }: Props) {
           >
             {spreadsheet ? 'Change spreadsheet' : 'Choose spreadsheet'}
           </Button>
+          {/* CSV, Excel o LibreOffice; no necesita Google. */}
+          <FileButton onChange={chooseFromFile} accept={SPREADSHEET_ACCEPT}>
+            {(props) => (
+              <Button variant="default" leftSection={<IconUpload size={16} />} disabled={loading} {...props}>
+                Upload file
+              </Button>
+            )}
+          </FileButton>
           {import.meta.env.DEV && (
             <Button
               variant="light"
@@ -108,7 +118,7 @@ export function SpreadsheetPanel({ onChange, settings, children }: Props) {
         </Group>
         {!google.signedIn && !spreadsheet && (
           <Text size="sm" c="dimmed">
-            Sign in with Google to choose a spreadsheet, or paste cells below.
+            Sign in with Google to choose a spreadsheet. Uploading a file or pasting cells works without it.
           </Text>
         )}
         {/* No necesita Google: las celdas vienen del portapapeles. */}
