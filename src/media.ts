@@ -16,17 +16,12 @@ export function useIsMobile(): boolean {
 }
 
 /**
- * El puntero principal es el dedo. Para instrucciones que dependen de cómo se interactúa ahora
- * ("mantén presionado" en vez de Ctrl+V); una tablet con teclado pero usada al tacto también cuenta.
+ * El puntero principal es el dedo: teléfono o tablet usada al tacto. Para instrucciones
+ * ("mantén presionado" en vez de Ctrl+V) y para ocultar lo que necesita teclado físico (Vim).
+ *
+ * Se usa el puntero principal y no any-pointer: los teléfonos Samsung (y otros Android)
+ * informan `any-pointer: fine` sin mouse, pero su puntero principal sí es `coarse`.
  */
 export function usePrimaryTouch(): boolean {
   return useMedia('(pointer: coarse)')
-}
-
-/**
- * Hay algún puntero preciso (mouse o trackpad). No hay consulta para saber si hay teclado físico;
- * esto es la mejor aproximación. Para funciones que necesitan teclado, como Vim.
- */
-export function useHasFinePointer(): boolean {
-  return useMedia('(any-pointer: fine)')
 }
