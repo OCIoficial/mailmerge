@@ -1,0 +1,5 @@
+/* Cada ruta (con su nombre y "Required") separada de la siguiente. */
+.path + .path {
+  padding-top: 8px;
+  border-top: 1px dashed var(--mantine-color-default-border);
+}

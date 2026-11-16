@@ -91,10 +91,10 @@ function AttachmentChips({ attachments }: { attachments: ResolvedAttachment[] })
         return attachment.kind === 'zip' ? (
           // Un ZIP se expande para ver qué archivos incluye.
           <details key={i} className={classes.chip}>
-            <summary title={`${attachment.files.length} files, click to list them`}>{title}</summary>
+            <summary title={`${attachment.entries.length} files, click to list them`}>{title}</summary>
             <ul className={classes.zipFiles}>
-              {attachment.files.map((file) => (
-                <li key={file}>{file}</li>
+              {attachment.entries.map(({ path }) => (
+                <li key={path}>{path}</li>
               ))}
             </ul>
           </details>

@@ -21,6 +21,7 @@ import type { AttachmentPath } from '../merge/template.ts'
 import { useGoogle } from '../google/index.ts'
 import type { FileSource, LoadProgress } from '../sources.ts'
 import { LoadingProgress } from './LoadingProgress.tsx'
+import classes from './AttachmentsPanel.module.css'
 import { FileTree } from './FileTree.tsx'
 import { Notice } from './Notice.tsx'
 
@@ -155,13 +156,22 @@ export function AttachmentsPanel() {
                 <HelpRows
                   rows={[
                     ['Alumnos/{{ rut }}/informe.pdf', 'One file per row, using template variables'],
+                    ['Alumnos/{{ rut }}', 'A folder, as a ZIP'],
                     ['Alumnos/{{ rut }}/*.pdf', '* matches any characters in a name'],
                     ['Alumnos/**/{{ rut }}.pdf', '** matches any number of folders'],
-                    ['Alumnos/{{ rut }}', 'A folder is attached as a ZIP'],
+                    ['/', 'Everything loaded, as one ZIP'],
                   ]}
                 />
                 <Text size="xs" c="dimmed" mt={6}>
-                  Paths are relative to the loaded folder or archive. Matching is exact, including case and accents.
+                  Each path is one attachment: if it matches several files, they go in one ZIP that keeps their folders.
+                  For several attachments, add several paths. Paths are relative to the loaded folder or archive;
+                  matching is exact, including case and accents.
+                </Text>
+              </HelpSection>
+              <HelpSection title="Name">
+                <Text size="xs" c="dimmed">
+                  Optional, and can use variables: <code>{'informe-{{ rut }}'}</code>. Without one: the file's name, the
+                  folder's name, or the name of the folder the files share. A missing extension is added.
                 </Text>
               </HelpSection>
               <HelpSection title="Required">
@@ -172,36 +182,52 @@ export function AttachmentsPanel() {
               </HelpSection>
             </HelpPopover>
           </Group>
-          {paths.map(({ path, required }, index) => (
-            <Group key={index} gap={8} wrap="nowrap">
-              <TextInput
-                style={{ flex: 1 }}
-                ff="monospace"
-                placeholder="Alumnos/{{ rut }}/*.pdf"
-                aria-label={`Attachment path ${index + 1}`}
-                value={path}
-                onChange={(event) => updatePath(index, { path: event.currentTarget.value })}
-              />
-              <Checkbox
-                size="xs"
-                label="Required"
-                title={
-                  required
-                    ? 'If the file is missing, the email is marked as needing fixing.'
-                    : 'If the file is missing, the email is sent without it.'
-                }
-                checked={required}
-                onChange={(event) => updatePath(index, { required: event.currentTarget.checked })}
-              />
-              <ActionIcon
-                variant="subtle"
-                color="gray"
-                aria-label={`Remove attachment path ${index + 1}`}
-                onClick={() => onPathsChange(paths.filter((_, i) => i !== index))}
-              >
-                <IconX size={16} />
-              </ActionIcon>
-            </Group>
+          {paths.map(({ path, name = '', required }, index) => (
+            // Una ruta = un adjunto: la ruta, y debajo su nombre y si es obligatorio.
+            <Stack key={index} gap={4} className={classes.path}>
+              <Group gap={8} wrap="nowrap">
+                <TextInput
+                  style={{ flex: 1 }}
+                  ff="monospace"
+                  placeholder="Alumnos/{{ rut }}/*.pdf"
+                  aria-label={`Attachment path ${index + 1}`}
+                  value={path}
+                  onChange={(event) => updatePath(index, { path: event.currentTarget.value })}
+                />
+                <ActionIcon
+                  variant="subtle"
+                  color="gray"
+                  aria-label={`Remove attachment path ${index + 1}`}
+                  onClick={() => onPathsChange(paths.filter((_, i) => i !== index))}
+                >
+                  <IconX size={16} />
+                </ActionIcon>
+              </Group>
+              <Group gap={8} wrap="nowrap">
+                <TextInput
+                  size="xs"
+                  style={{ flex: 1 }}
+                  ff="monospace"
+                  placeholder="Attachment name (optional)"
+                  aria-label={`Attachment name ${index + 1}`}
+                  value={name}
+                  onChange={(event) => updatePath(index, { name: event.currentTarget.value })}
+                />
+                <Checkbox
+                  size="xs"
+                  label="Required"
+                  title={
+                    required
+                      ? 'If nothing matches, the email is marked as needing fixing.'
+                      : 'If nothing matches, the email is sent without it.'
+                  }
+                  checked={required}
+                  onChange={(event) => updatePath(index, { required: event.currentTarget.checked })}
+                />
+                {/* Alinea con la ✕ de la fila de arriba. */}
+                <div style={{ width: 28, flex: 'none' }} />
+              </Group>
+            </Stack>
           ))}
           <Group>
             <Button
@@ -209,7 +235,7 @@ export function AttachmentsPanel() {
               variant="subtle"
               color="gray"
               leftSection={<IconPlus size={14} />}
-              onClick={() => onPathsChange([...paths, { path: '', required: true }])}
+              onClick={() => onPathsChange([...paths, { path: '', name: '', required: true }])}
             >
               Add path
             </Button>

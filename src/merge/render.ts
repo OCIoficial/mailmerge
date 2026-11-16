@@ -1,6 +1,12 @@
 import { Liquid, type Template } from 'liquidjs'
 import MarkdownIt from 'markdown-it'
-import { MAX_ATTACHMENTS_SIZE, toAttachment, type ResolvedAttachment } from '../attachments/resolve.ts'
+import {
+  attachmentFrom,
+  MAX_ATTACHMENTS_SIZE,
+  wholeTreeAttachment,
+  withName,
+  type ResolvedAttachment,
+} from '../attachments/resolve.ts'
 import { findPath, formatSize, hasGlob, splitPath, type AttachmentTree } from '../attachments/tree.ts'
 import type { Row } from './dataset.ts'
 import { titlecase } from './normalize.ts'
@@ -56,7 +62,7 @@ export const ADDRESS_FIELDS: TemplateField[] = ['to', 'cc', 'bcc', 'replyTo']
 export interface CompiledTemplate {
   fields: Partial<Record<TemplateField, Template[]>>
   /** Una entrada por ruta de adjunto; templates null si la ruta tiene un error de sintaxis. */
-  attachments: { templates: Template[] | null; required: boolean }[]
+  attachments: { templates: Template[] | null; name: Template[] | null; required: boolean }[]
   /** Errores de sintaxis; si hay alguno, ningún correo se puede renderizar. */
   errors: string[]
 }
@@ -71,11 +77,11 @@ export function compileTemplate(template: EmailTemplate): CompiledTemplate {
       compiled.errors.push(`${FIELD_LABELS[field]}: ${(e as Error).message}`)
     }
   }
-  template.attachments.forEach(({ path, required }, i) => {
+  template.attachments.forEach(({ path, name = '', required }, i) => {
     try {
-      compiled.attachments.push({ templates: textEngine.parse(path), required })
+      compiled.attachments.push({ templates: textEngine.parse(path), name: textEngine.parse(name), required })
     } catch (e) {
-      compiled.attachments.push({ templates: null, required })
+      compiled.attachments.push({ templates: null, name: null, required })
       compiled.errors.push(`Attachment ${i + 1}: ${(e as Error).message}`)
     }
   })
@@ -114,27 +120,39 @@ function addressOf(entry: string): string {
 }
 
 function resolveAttachments(compiled: CompiledTemplate, row: Row, tree: AttachmentTree | null, email: RenderedEmail) {
-  compiled.attachments.forEach(({ templates, required }, i) => {
+  compiled.attachments.forEach(({ templates, name: nameTemplates, required }, i) => {
     if (!templates) return
     const problem = (message: string) => email.problems.push({ field: 'attachments', message })
     // Opcional y sin archivo: no es un problema, el correo sale sin ese adjunto.
     const missing = (path: string, message: string) =>
       required ? problem(message) : email.skippedAttachments.push(path || `path ${i + 1}`)
     let path: string
+    let name: string
     try {
       path = (textEngine.renderSync(templates, row) as string).trim()
+      name = nameTemplates ? (textEngine.renderSync(nameTemplates, row) as string) : ''
     } catch (e) {
       problem(`path ${i + 1}: ${(e as Error).message}`)
       return
     }
-    if (splitPath(path).length === 0) return missing(path, `path ${i + 1} is empty.`)
+    // "/" es todo lo cargado, en un ZIP con el nombre de lo cargado.
+    if (path !== '/' && splitPath(path).length === 0) return missing(path, `path ${i + 1} is empty.`)
     if (!tree) return missing(path, `"${path}": no files loaded.`)
 
-    const matches = findPath(tree, path)
-    if (matches.length === 0) return missing(path, `"${path}" not found.`)
-    // Sin comodines debe haber un solo resultado; Drive permite nombres repetidos.
-    if (!hasGlob(path) && matches.length > 1) return problem(`"${path}" matches ${matches.length} items with the same name.`)
-    email.attachments.push(...matches.map(toAttachment))
+    let attachment: ResolvedAttachment
+    if (path === '/') {
+      attachment = wholeTreeAttachment(tree)
+    } else {
+      const matches = findPath(tree, path)
+      if (matches.length === 0) return missing(path, `"${path}" not found.`)
+      // Sin comodines debe haber un solo resultado; Drive permite nombres repetidos.
+      if (!hasGlob(path) && matches.length > 1)
+        return problem(`"${path}" matches ${matches.length} items with the same name.`)
+      // Una ruta es un solo adjunto, aunque calce con varias cosas.
+      attachment = attachmentFrom(tree, matches)
+    }
+    if (attachment.kind === 'zip' && attachment.entries.length === 0) return missing(path, `"${path}" has no files.`)
+    email.attachments.push(withName(attachment, name))
   })
 
   const total = email.attachments.reduce((sum, attachment) => sum + attachment.size, 0)
@@ -143,7 +161,12 @@ function resolveAttachments(compiled: CompiledTemplate, row: Row, tree: Attachme
   }
 }
 
-export function renderEmail(compiled: CompiledTemplate, row: Row, index: number, tree: AttachmentTree | null): RenderedEmail {
+export function renderEmail(
+  compiled: CompiledTemplate,
+  row: Row,
+  index: number,
+  tree: AttachmentTree | null,
+): RenderedEmail {
   const email: RenderedEmail = {
     index,
     attachments: [],

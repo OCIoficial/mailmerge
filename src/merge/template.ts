@@ -16,8 +16,12 @@ export interface EmailTemplate {
   attachments: AttachmentPath[]
 }
 
+/** Una ruta = un adjunto. */
 export interface AttachmentPath {
+  /** "/" es todo lo cargado. Con comodines, lo que calce va en un solo ZIP. */
   path: string
+  /** Nombre del adjunto, con variables; vacío = automático. */
+  name: string
   /** Si es obligatorio, que no se encuentre es un problema; si no, el correo sale sin ese adjunto. */
   required: boolean
 }

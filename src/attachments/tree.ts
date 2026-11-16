@@ -127,33 +127,39 @@ function segmentPattern(segment: string): RegExp {
  * Busca la ruta en el árbol. Comparación exacta; `*` y `?` dentro de un nombre,
  * `**` para cualquier cantidad de carpetas. Devuelve todos los nodos que calzan.
  */
-export function findPath(tree: AttachmentTree, path: string): TreeNode[] {
+/** Lo que calzó con una ruta, con su ubicación (nombres desde la raíz, incluido el propio). */
+export interface PathMatch {
+  node: TreeNode
+  path: string[]
+}
+
+export function findPath(tree: AttachmentTree, path: string): PathMatch[] {
   const segments = splitPath(path)
   if (segments.length === 0) return []
 
-  const results = new Set<TreeNode>()
-  function walk(node: DirNode, index: number) {
+  const results = new Map<TreeNode, string[]>()
+  function walk(node: DirNode, index: number, at: string[]) {
     const segment = segments[index]
     const last = index === segments.length - 1
     if (segment === '**') {
       if (last) {
         // "a/**" calza con todo lo que hay dentro de a.
-        for (const child of node.children) results.add(child)
+        for (const child of node.children) results.set(child, [...at, child.name])
         return
       }
-      walk(node, index + 1)
-      for (const child of node.children) if (child.kind === 'dir') walk(child, index)
+      walk(node, index + 1, at)
+      for (const child of node.children) if (child.kind === 'dir') walk(child, index, [...at, child.name])
       return
     }
     const pattern = segmentPattern(segment)
     for (const child of node.children) {
       if (!pattern.test(child.name)) continue
-      if (last) results.add(child)
-      else if (child.kind === 'dir') walk(child, index + 1)
+      if (last) results.set(child, [...at, child.name])
+      else if (child.kind === 'dir') walk(child, index + 1, [...at, child.name])
     }
   }
-  walk(tree.root, 0)
-  return [...results]
+  walk(tree.root, 0, [])
+  return [...results].map(([node, path]) => ({ node, path }))
 }
 
 /** Archivos dentro de una carpeta, con su ruta relativa a ella. */
