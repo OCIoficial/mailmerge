@@ -16,6 +16,7 @@ import { IconBrandGoogleDrive, IconFileZip, IconFlask, IconPlus, IconUpload, Ico
 import { useState } from 'react'
 import { readArchive } from '../attachments/archive.ts'
 import type { AttachmentTree } from '../attachments/tree.ts'
+import { setTree, updateTemplate, useStore } from '../store.ts'
 import type { AttachmentPath } from '../merge/template.ts'
 import { useGoogle } from '../google/index.ts'
 import type { FileSource } from '../sources.ts'
@@ -24,14 +25,13 @@ import { Notice } from './Notice.tsx'
 
 const ARCHIVE_ACCEPT = '.zip,.tar,.tgz,.gz,application/zip,application/x-tar,application/gzip'
 
-interface Props {
-  tree: AttachmentTree | null
-  onTreeChange: (tree: AttachmentTree | null) => void
-  paths: AttachmentPath[]
-  onPathsChange: (paths: AttachmentPath[]) => void
-}
+const onTreeChange = setTree
+const onPathsChange = (attachments: AttachmentPath[]) => updateTemplate({ attachments })
 
-export function AttachmentsPanel({ tree, onTreeChange, paths, onPathsChange }: Props) {
+/** Archivos y rutas de adjuntos; lee del store solo esas dos cosas. */
+export function AttachmentsPanel() {
+  const tree = useStore((state) => state.tree)
+  const paths = useStore((state) => state.template.attachments)
   const google = useGoogle()
   const [loading, setLoading] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)

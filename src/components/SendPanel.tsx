@@ -1,6 +1,7 @@
 import { Button, Card, Group, Modal, Progress, Stack, Text, TextInput, Title } from '@mantine/core'
 import { IconMailForward, IconPlayerStop, IconSend } from '@tabler/icons-react'
-import { plural, type SendControls } from '../mail/useSendControls.ts'
+import { plural, useSendControls, type SendControls } from '../mail/sending.ts'
+import { useIsMobile } from '../media.ts'
 import { Notice, WarningIcon } from './Notice.tsx'
 import classes from './SendPanel.module.css'
 
@@ -20,7 +21,7 @@ function TestButton({ controls, short = false }: { controls: SendControls; short
 }
 
 function SendingProgress({ controls }: { controls: SendControls }) {
-  const progress = controls.sender.progress
+  const progress = controls.progress
   if (!progress) return null
   return (
     <Stack gap={6}>
@@ -28,7 +29,7 @@ function SendingProgress({ controls }: { controls: SendControls }) {
         <Text size="sm">
           Sending {Math.min(progress.done + 1, progress.total)} of {progress.total}…
         </Text>
-        <Button variant="default" leftSection={<IconPlayerStop size={16} />} onClick={controls.sender.stop}>
+        <Button variant="default" leftSection={<IconPlayerStop size={16} />} onClick={controls.stop}>
           Stop
         </Button>
       </Group>
@@ -50,14 +51,11 @@ function BlockingNote({ blocking }: { blocking: number }) {
   )
 }
 
-interface PanelProps {
-  controls: SendControls
-  /** Teléfono: los botones y el progreso van en la barra fija; aquí queda solo la dirección de prueba. */
-  compact: boolean
-}
-
-export function SendPanel({ controls, compact }: PanelProps) {
-  const { sender, sent, failed, pending, emails, blocking } = controls
+export function SendPanel() {
+  const controls = useSendControls()
+  // Teléfono: los botones y el progreso van en la barra fija; aquí queda solo la dirección de prueba.
+  const compact = useIsMobile()
+  const { sent, failed, pending, emails, blocking } = controls
 
   const testInput = (
     <TextInput
@@ -93,7 +91,7 @@ export function SendPanel({ controls, compact }: PanelProps) {
           <TestButton controls={controls} />
         </Group>
 
-        {sender.progress ? (
+        {controls.progress ? (
           <SendingProgress controls={controls} />
         ) : pending.length > 0 ? (
           <Button
@@ -111,15 +109,15 @@ export function SendPanel({ controls, compact }: PanelProps) {
           )
         )}
 
-        {!sender.running && (sent.length > 0 || failed.length > 0) && (
+        {!controls.running && (sent.length > 0 || failed.length > 0) && (
           <Text size="sm" c="dimmed">
             {plural(sent.length, 'email', 'emails')} sent
             {failed.length > 0 && `, ${failed.length} failed. Failed emails are marked in the list`}.
           </Text>
         )}
-        {!sender.running && sender.stopReason && (
+        {!controls.running && controls.stopReason && (
           <Notice tone="error" title="Sending stopped">
-            {sender.stopReason} Emails not sent yet stay pending.
+            {controls.stopReason} Emails not sent yet stay pending.
           </Notice>
         )}
 
@@ -133,10 +131,11 @@ export function SendPanel({ controls, compact }: PanelProps) {
  * Barra fija sobre las pestañas del teléfono: Test y Send siempre al alcance del pulgar,
  * con una línea que explica por qué Send está deshabilitado.
  */
-export function SendBar({ controls }: { controls: SendControls }) {
-  const { sender, sent, failed, pending, emails, blocking } = controls
+export function SendBar() {
+  const controls = useSendControls()
+  const { sent, failed, pending, emails, blocking } = controls
 
-  if (sender.progress) {
+  if (controls.progress) {
     return (
       <div className={classes.bar}>
         <SendingProgress controls={controls} />
@@ -156,10 +155,10 @@ export function SendBar({ controls }: { controls: SendControls }) {
 
   // Una sola línea de estado: primero el resultado del último envío, luego por qué no se puede enviar.
   let status = null
-  if (sender.stopReason) {
+  if (controls.stopReason) {
     status = (
       <Text size="sm" c="red" lineClamp={2}>
-        Sending stopped. {sender.stopReason}
+        Sending stopped. {controls.stopReason}
       </Text>
     )
   } else if (sent.length > 0 || failed.length > 0) {
@@ -197,7 +196,8 @@ export function SendBar({ controls }: { controls: SendControls }) {
 }
 
 /** Confirmación del envío; una sola, sirve tanto a la tarjeta como a la barra. */
-export function SendConfirmModal({ controls }: { controls: SendControls }) {
+export function SendConfirmModal() {
+  const controls = useSendControls()
   const { pending, attachmentCount } = controls
   return (
     <Modal

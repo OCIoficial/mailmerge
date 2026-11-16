@@ -14,30 +14,17 @@ import {
 } from '@mantine/core'
 import { useReducedMotion } from '@mantine/hooks'
 import { IconArrowLeft, IconChevronLeft, IconChevronRight } from '@tabler/icons-react'
-import { useRef, useState, type ReactNode } from 'react'
+import { useRef, useState } from 'react'
 import type { ResolvedAttachment } from '../attachments/resolve.ts'
 import { formatSize } from '../attachments/tree.ts'
-import type { SendStatus } from '../mail/useSender.ts'
+import { setExcluded, useStore, type SendStatus } from '../store.ts'
+import { SendPanel } from './SendPanel.tsx'
 import { rangeBetween, setIncluded } from '../merge/exclusion.ts'
 import { PROBLEM_LABELS, type RenderedEmail } from '../merge/render.ts'
 import { FIELD_LABELS } from '../merge/template.ts'
 import { Notice, WarningIcon } from './Notice.tsx'
 import classes from './ReviewView.module.css'
 import { useIsMobile } from '../media.ts'
-
-interface Props {
-  /** Todas las filas, también las excluidas (se muestran atenuadas). */
-  emails: RenderedEmail[]
-  /** Filas que no se envían; compartido con la tabla de Edit. */
-  excluded: Set<number>
-  onExcludedChange: (excluded: Set<number>) => void
-  templateErrors: string[]
-  problemCount: number
-  /** Panel de envío, debajo de la lista. */
-  sendPanel: ReactNode
-  /** Estado de envío por fila. */
-  statuses: Map<number, SendStatus>
-}
 
 type Filter = 'all' | 'problems'
 type Device = 'desktop' | 'mobile'
@@ -242,15 +229,15 @@ function EmailDetail({
   )
 }
 
-export function ReviewView({
-  emails,
-  excluded,
-  onExcludedChange,
-  templateErrors,
-  problemCount,
-  sendPanel,
-  statuses,
-}: Props) {
+/** Revisión de los correos generados; lee del store los correos, las filas excluidas y el envío. */
+export function ReviewView() {
+  // Todas las filas, también las excluidas (se muestran atenuadas).
+  const emails = useStore((state) => state.allEmails)
+  const excluded = useStore((state) => state.excluded)
+  const templateErrors = useStore((state) => state.compiled.errors)
+  const problemCount = useStore((state) => state.problemCount)
+  const statuses = useStore((state) => state.statuses)
+  const onExcludedChange = setExcluded
   // Por defecto se muestra el primer correo como ejemplo.
   const [selected, setSelected] = useState(0)
   const [filter, setFilter] = useState<Filter>('all')
@@ -464,7 +451,7 @@ export function ReviewView({
                   })}
                 </div>
               </ScrollArea.Autosize>
-              {sendPanel}
+              <SendPanel />
             </Stack>
           </Grid.Col>
           {!mobile && (

@@ -1,6 +1,7 @@
 import { Checkbox, Group, Stack, Switch, Text } from '@mantine/core'
 import { useState } from 'react'
-import type { GlobalNormalization, Normalization, NormalizedDataset, Step } from '../merge/normalize.ts'
+import type { GlobalNormalization, Step } from '../merge/normalize.ts'
+import { currentNormalization, setExcluded, setNormalization, useStore } from '../store.ts'
 import { DataTable } from './DataTable.tsx'
 
 const GLOBAL_OPTIONS: { key: keyof GlobalNormalization; label: string; description: string }[] = [
@@ -9,16 +10,14 @@ const GLOBAL_OPTIONS: { key: keyof GlobalNormalization; label: string; descripti
   { key: 'invisible', label: 'Remove invisible characters', description: 'Non-breaking and zero-width spaces.' },
 ]
 
-interface Props {
-  dataset: NormalizedDataset
-  normalization: Normalization
-  onChange: (normalization: Normalization) => void
-  excluded: Set<number>
-  onExcludedChange: (excluded: Set<number>) => void
-}
-
-export function NormalizedData({ dataset, normalization, onChange, excluded, onExcludedChange }: Props) {
+/** Normalización y tabla de la planilla cargada. Solo se re-dibuja cuando cambian estos datos. */
+export function NormalizedData() {
+  const dataset = useStore((state) => state.normalized)
+  const normalization = useStore(currentNormalization)
+  const excluded = useStore((state) => state.excluded)
   const [showOriginal, setShowOriginal] = useState(false)
+  if (!dataset) return null
+  const onChange = setNormalization
 
   return (
     <Stack gap="sm">
@@ -62,7 +61,7 @@ export function NormalizedData({ dataset, normalization, onChange, excluded, onE
         normalization={normalization}
         showOriginal={showOriginal}
         excluded={excluded}
-        onExcludedChange={onExcludedChange}
+        onExcludedChange={setExcluded}
         onColumnStepsChange={(key, steps: Step[]) =>
           onChange({ ...normalization, columns: { ...normalization.columns, [key]: steps } })
         }

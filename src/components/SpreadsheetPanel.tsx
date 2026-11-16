@@ -1,12 +1,14 @@
 import { Button, Card, Checkbox, FileButton, Group, Select, SimpleGrid, Stack, Text, Title } from '@mantine/core'
 import { IconFlask, IconRefresh, IconTable, IconUpload } from '@tabler/icons-react'
-import { useState, type ReactNode } from 'react'
+import { useState } from 'react'
 import { pastedSpreadsheet } from '../clipboard.ts'
 import { fileSpreadsheet, SPREADSHEET_ACCEPT } from '../fileSpreadsheet.ts'
 import { useGoogle } from '../google/index.ts'
-import { toDataset, type Dataset } from '../merge/dataset.ts'
-import { sheetKey, type SheetSettingsStore } from '../merge/sheetSettings.ts'
+import { toDataset } from '../merge/dataset.ts'
+import { sheetKey } from '../merge/sheetSettings.ts'
 import type { Spreadsheet, SpreadsheetSource } from '../sources.ts'
+import { setDataset, settingsFor, updateSheetSettings, useStore } from '../store.ts'
+import { NormalizedData } from './NormalizedData.tsx'
 import { Notice } from './Notice.tsx'
 import { PasteArea } from './PasteArea.tsx'
 
@@ -16,15 +18,7 @@ interface Loaded {
   spreadsheet: Spreadsheet
 }
 
-interface Props {
-  onChange: (dataset: Dataset | null) => void
-  /** Configuración guardada por hoja (encabezado y normalización). */
-  settings: SheetSettingsStore
-  /** Se muestra al final de la tarjeta (normalización y tabla de datos). */
-  children?: ReactNode
-}
-
-export function SpreadsheetPanel({ onChange, settings, children }: Props) {
+export function SpreadsheetPanel() {
   const google = useGoogle()
   const [loaded, setLoaded] = useState<Loaded | null>(null)
   const spreadsheet = loaded?.spreadsheet ?? null
@@ -47,10 +41,11 @@ export function SpreadsheetPanel({ onChange, settings, children }: Props) {
   }
 
   const currentKey = spreadsheet && sheet ? sheetKey(spreadsheet.id, sheet) : null
-  const hasHeader = currentKey ? settings.settingsFor(currentKey).hasHeader : false
+  const hasHeader = useStore((state) => settingsFor(state, currentKey ?? undefined).hasHeader)
+  const hasData = useStore((state) => state.dataset !== null)
 
   function emit(info: Spreadsheet, name: string, next: string[][], header: boolean) {
-    onChange({ ...toDataset(next, header), sheetKey: sheetKey(info.id, name) })
+    setDataset({ ...toDataset(next, header), sheetKey: sheetKey(info.id, name) })
   }
 
   async function loadSheet({ source, spreadsheet: info }: Loaded, name: string) {
@@ -58,12 +53,12 @@ export function SpreadsheetPanel({ onChange, settings, children }: Props) {
     setSheet(name)
     setValues(next)
     // Cada hoja recuerda si su primera fila es encabezado.
-    emit(info, name, next, settings.settingsFor(sheetKey(info.id, name)).hasHeader)
+    emit(info, name, next, settingsFor(useStore.getState(), sheetKey(info.id, name)).hasHeader)
   }
 
   function changeHasHeader(next: boolean) {
     if (!spreadsheet || !sheet || !currentKey) return
-    settings.update(currentKey, { hasHeader: next })
+    updateSheetSettings(currentKey, { hasHeader: next })
     if (values) emit(spreadsheet, sheet, values, next)
   }
 
@@ -175,7 +170,7 @@ export function SpreadsheetPanel({ onChange, settings, children }: Props) {
             onChange={(event) => changeHasHeader(event.currentTarget.checked)}
           />
         )}
-        {children}
+        {hasData && <NormalizedData />}
         {error && (
           <Notice tone="error" title="Could not load the spreadsheet">
             {error}

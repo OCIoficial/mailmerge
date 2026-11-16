@@ -17,12 +17,12 @@ import { Link, RichTextEditor } from '@mantine/tiptap'
 import { useEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import { useLocalStorage } from '@mantine/hooks'
-import { useId, useRef, useState } from 'react'
-import type { Column } from '../merge/dataset.ts'
+import { useId, useRef, useState, type Ref } from 'react'
 import { HelpPopover, HelpRows, HelpSection } from './HelpPopover.tsx'
 import { usePrimaryTouch } from '../media.ts'
 import { MarkdownEditor, type MarkdownEditorHandle } from './MarkdownEditor.tsx'
-import { FIELD_LABELS, type BodyFormat, type EmailTemplate, type TemplateField } from '../merge/template.ts'
+import { FIELD_LABELS, type BodyFormat, type TemplateField } from '../merge/template.ts'
+import { updateTemplate, useStore } from '../store.ts'
 
 type TextField = Exclude<TemplateField, 'body'>
 
@@ -35,13 +35,77 @@ const FORMATS: { value: BodyFormat; label: string }[] = [
   { value: 'richtext', label: 'Rich text' },
 ]
 
-interface Props {
-  template: EmailTemplate
-  columns: Column[]
-  onChange: (patch: Partial<EmailTemplate>) => void
+/**
+ * Un campo de texto del template. Lee solo su propio valor del store: escribir en Subject
+ * re-dibuja este campo y nada más.
+ */
+function TemplateTextInput({
+  field,
+  inputRef,
+  onFocus,
+  onClose,
+  ...props
+}: {
+  field: TextField
+  inputRef: Ref<HTMLInputElement>
+  onFocus: () => void
+  /** Campo opcional: si está vacío, muestra una ✕ para ocultarlo (cerrar no debe borrar nada). */
+  onClose?: () => void
+} & Omit<Partial<TextInputProps>, 'onFocus'>) {
+  const value = useStore((state) => state.template[field])
+  return (
+    <TextInput
+      label={FIELD_LABELS[field]}
+      value={value}
+      ref={inputRef}
+      onFocus={onFocus}
+      onChange={(event) => updateTemplate({ [field]: event.currentTarget.value })}
+      rightSection={
+        onClose && value === '' ? (
+          <CloseButton size="sm" aria-label={`Remove ${FIELD_LABELS[field]}`} onClick={onClose} />
+        ) : undefined
+      }
+      {...props}
+    />
+  )
 }
 
-export function TemplateEditor({ template, columns, onChange }: Props) {
+/** El cuerpo en Markdown; lee solo el texto del cuerpo. */
+function MarkdownBody({
+  editorRef,
+  vim,
+  onFocus,
+}: {
+  editorRef: Ref<MarkdownEditorHandle>
+  vim: boolean
+  onFocus: () => void
+}) {
+  const markdown = useStore((state) => state.template.markdown)
+  return (
+    <MarkdownEditor
+      ref={editorRef}
+      aria-label={FIELD_LABELS.body}
+      placeholder={'Hi {{ name }},\n\nYour **balance** is {{ amount }}.'}
+      value={markdown}
+      vim={vim}
+      onFocus={onFocus}
+      onChange={(markdown) => updateTemplate({ markdown })}
+    />
+  )
+}
+
+/**
+ * La tarjeta del template. No lee los textos (cada campo lee el suyo), solo el formato, las
+ * columnas para los botones de variables y si los campos opcionales tienen algo.
+ */
+export function TemplateEditor() {
+  const format = useStore((state) => state.template.format)
+  const columns = useStore((state) => state.dataset?.columns)
+  const filled = {
+    cc: useStore((state) => state.template.cc !== ''),
+    bcc: useStore((state) => state.template.bcc !== ''),
+    replyTo: useStore((state) => state.template.replyTo !== ''),
+  }
   const inputs = useRef<Partial<Record<TextField, HTMLInputElement | null>>>({})
   const markdownEditor = useRef<MarkdownEditorHandle>(null)
   // Preferencia personal, no del template: se guarda aparte.
@@ -54,7 +118,7 @@ export function TemplateEditor({ template, columns, onChange }: Props) {
   // Abiertos en esta sesión. Un campo con valor se muestra siempre, aunque no esté aquí:
   // el template se guarda en el navegador y un Bcc oculto que igual se envía sería peor.
   const [opened, setOpened] = useState<ReadonlySet<OptionalField>>(() => new Set())
-  const isVisible = (field: OptionalField) => opened.has(field) || template[field] !== ''
+  const isVisible = (field: OptionalField) => opened.has(field) || filled[field]
   const visibleOptional = OPTIONAL_FIELDS.filter(isVisible)
   const hiddenOptional = OPTIONAL_FIELDS.filter((field) => !isVisible(field))
 
@@ -75,40 +139,43 @@ export function TemplateEditor({ template, columns, onChange }: Props) {
 
   const editor = useEditor({
     extensions: [StarterKit.configure({ link: false }), Link.configure({ openOnClick: false })],
-    content: template.body,
-    onUpdate: ({ editor }) => onChange({ body: editor.getHTML() }),
+    // Sin control desde React: el contenido inicial se lee una vez y luego manda el editor.
+    content: useStore.getState().template.body,
+    onUpdate: ({ editor }) => updateTemplate({ body: editor.getHTML() }),
     onFocus: () => setTarget('body'),
   })
 
   function insertVariable(key: string) {
     const snippet = `{{ ${key} }}`
     if (target === 'body') {
-      if (template.format === 'richtext') editor?.chain().focus().insertContent(snippet).run()
+      if (format === 'richtext') editor?.chain().focus().insertContent(snippet).run()
       else markdownEditor.current?.insert(snippet)
       return
     }
     const field = target
     const input = inputs.current[field]
-    const value = template[field]
+    // Se lee al insertar, sin suscribirse: la tarjeta no se re-dibuja al escribir.
+    const value = useStore.getState().template[field]
     const start = input?.selectionStart ?? value.length
     const end = input?.selectionEnd ?? value.length
-    onChange({ [field]: value.slice(0, start) + snippet + value.slice(end) })
+    updateTemplate({ [field]: value.slice(0, start) + snippet + value.slice(end) })
     requestAnimationFrame(() => {
       input?.focus()
       input?.setSelectionRange(start + snippet.length, start + snippet.length)
     })
   }
 
-  const textInput = (field: TextField, props: Partial<TextInputProps> = {}) => (
-    <TextInput
+  const textInput = (
+    field: TextField,
+    props: Omit<Partial<TextInputProps>, 'onFocus'> & { onClose?: () => void } = {},
+  ) => (
+    <TemplateTextInput
       key={field}
-      label={FIELD_LABELS[field]}
-      value={template[field]}
-      ref={(element) => {
+      field={field}
+      inputRef={(element) => {
         inputs.current[field] = element
       }}
       onFocus={() => setTarget(field)}
-      onChange={(event) => onChange({ [field]: event.currentTarget.value })}
       {...props}
     />
   )
@@ -118,7 +185,7 @@ export function TemplateEditor({ template, columns, onChange }: Props) {
       <Stack gap="sm">
         <Title order={4}>2. Template</Title>
 
-        {columns.length > 0 && (
+        {columns && columns.length > 0 && (
           <Stack gap={4}>
             <Text size="sm">
               Variables (inserted into <b>{FIELD_LABELS[target]}</b>):
@@ -167,19 +234,7 @@ export function TemplateEditor({ template, columns, onChange }: Props) {
         </Stack>
         {visibleOptional.length > 0 && (
           <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm" verticalSpacing="xs">
-            {visibleOptional.map((field) =>
-              textInput(field, {
-                // Solo un campo vacío se puede cerrar: cerrar no debe borrar nada.
-                rightSection:
-                  template[field] === '' ? (
-                    <CloseButton
-                      size="sm"
-                      aria-label={`Remove ${FIELD_LABELS[field]}`}
-                      onClick={() => closeField(field)}
-                    />
-                  ) : undefined,
-              }),
-            )}
+            {visibleOptional.map((field) => textInput(field, { onClose: () => closeField(field) }))}
           </SimpleGrid>
         )}
         {textInput('subject')}
@@ -189,16 +244,8 @@ export function TemplateEditor({ template, columns, onChange }: Props) {
             {FIELD_LABELS.body}
           </Text>
 
-          {template.format === 'markdown' ? (
-            <MarkdownEditor
-              ref={markdownEditor}
-              aria-label={FIELD_LABELS.body}
-              placeholder={'Hi {{ name }},\n\nYour **balance** is {{ amount }}.'}
-              value={template.markdown}
-              vim={vim && keyboard}
-              onFocus={() => setTarget('body')}
-              onChange={(markdown) => onChange({ markdown })}
-            />
+          {format === 'markdown' ? (
+            <MarkdownBody editorRef={markdownEditor} vim={vim && keyboard} onFocus={() => setTarget('body')} />
           ) : (
             <RichTextEditor editor={editor}>
               <RichTextEditor.Toolbar>
@@ -235,8 +282,8 @@ export function TemplateEditor({ template, columns, onChange }: Props) {
                 size="xs"
                 aria-label="Body format"
                 data={FORMATS}
-                value={template.format}
-                onChange={(value) => onChange({ format: value as BodyFormat })}
+                value={format}
+                onChange={(value) => updateTemplate({ format: value as BodyFormat })}
                 title="Each format keeps its own text; switching doesn't convert it."
               />
               <HelpPopover label="Syntax help">
@@ -253,7 +300,7 @@ export function TemplateEditor({ template, columns, onChange }: Props) {
                     All Liquid filters ↗
                   </Anchor>
                 </HelpSection>
-                {template.format === 'markdown' && (
+                {format === 'markdown' && (
                   <HelpSection title="Markdown">
                     <HelpRows
                       rows={[
@@ -270,7 +317,7 @@ export function TemplateEditor({ template, columns, onChange }: Props) {
                 )}
               </HelpPopover>
             </Group>
-            {template.format === 'markdown' && keyboard && (
+            {format === 'markdown' && keyboard && (
               <Switch size="xs" label="Vim" checked={vim} onChange={(event) => setVim(event.currentTarget.checked)} />
             )}
           </Group>

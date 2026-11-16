@@ -15,6 +15,7 @@ import {
 import { IconCheck, IconListCheck, IconLogout, IconPencil } from '@tabler/icons-react'
 import type { ReactNode } from 'react'
 import { useGoogle } from '../google/index.ts'
+import { useStore } from '../store.ts'
 import classes from './AppHeader.module.css'
 
 const iconProps = {
@@ -126,7 +127,9 @@ function ThemeMenuItems() {
 }
 
 /** Conteo de correos con problemas, en línea con la etiqueta de Review. */
-function ReviewLabel({ problemCount }: { problemCount: number }) {
+function ReviewLabel() {
+  // Solo el contador lee del store: cuando cambia, no se re-dibuja el encabezado entero.
+  const problemCount = useStore((state) => state.problemCount)
   return (
     <span className={classes.viewLabel}>
       Review
@@ -142,11 +145,9 @@ function ReviewLabel({ problemCount }: { problemCount: number }) {
 interface Props {
   view: View
   onViewChange: (view: View) => void
-  /** Correos con problemas; se muestran junto a Review. */
-  problemCount: number
 }
 
-export function AppHeader({ view, onViewChange, problemCount }: Props) {
+export function AppHeader({ view, onViewChange }: Props) {
   const google = useGoogle()
   // Mantine guarda la elección en localStorage.
   const { colorScheme, setColorScheme } = useMantineColorScheme()
@@ -167,7 +168,7 @@ export function AppHeader({ view, onViewChange, problemCount }: Props) {
         onChange={(value) => onViewChange(value as View)}
         data={[
           { value: 'edit', label: 'Edit' },
-          { value: 'review', label: <ReviewLabel problemCount={problemCount} /> },
+          { value: 'review', label: <ReviewLabel /> },
         ]}
       />
 
@@ -253,12 +254,12 @@ export function AppHeader({ view, onViewChange, problemCount }: Props) {
  * Barra inferior del teléfono: Edit y Review quedan al alcance del pulgar,
  * en vez de apretados en el encabezado.
  */
-export function BottomNav({ view, onViewChange, problemCount }: Props) {
+export function BottomNav({ view, onViewChange }: Props) {
   const tabs: { value: View; label: ReactNode; icon: ReactNode }[] = [
     { value: 'edit', label: 'Edit', icon: <IconPencil size={22} stroke={1.75} /> },
     {
       value: 'review',
-      label: <ReviewLabel problemCount={problemCount} />,
+      label: <ReviewLabel />,
       icon: <IconListCheck size={22} stroke={1.75} />,
     },
   ]
