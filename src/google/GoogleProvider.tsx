@@ -3,7 +3,7 @@ import { readArchive } from '../attachments/archive.ts'
 import type { FileSource, SpreadsheetSource } from '../sources.ts'
 import { AuthError, getSheetValues, getSpreadsheet, getUserEmail } from './api.ts'
 import { requestAccessToken, revokeAccessToken, type AccessToken } from './auth.ts'
-import { downloadDriveFile, loadDriveTree } from './drive.ts'
+import { downloadDriveFile, getDriveFileSize, loadDriveTree } from './drive.ts'
 import { sendRawMessage } from './gmail.ts'
 import { pickArchive, pickFolder, pickSpreadsheet } from './picker.ts'
 
@@ -85,13 +85,13 @@ export function GoogleProvider({ children }: { children: ReactNode }) {
       async pick(onProgress) {
         const folder = await run(pickFolder)
         if (!folder) return null
-        onProgress('Reading folder…')
+        onProgress({ message: `Reading ${folder.name}…` })
         return run((token) =>
           loadDriveTree(token, folder, (progress) =>
             onProgress(
               progress.phase === 'listing'
-                ? `Reading folder… ${progress.files} files`
-                : `Downloading ${progress.done} of ${progress.total} files…`,
+                ? { message: `Reading ${folder.name}… ${progress.files} files found` }
+                : { message: `Downloading ${folder.name}`, done: progress.done, total: progress.total, unit: 'files' },
             ),
           ),
         )
@@ -102,9 +102,14 @@ export function GoogleProvider({ children }: { children: ReactNode }) {
       async pick(onProgress) {
         const file = await run(pickArchive)
         if (!file) return null
-        onProgress('Downloading archive…')
-        const data = await run((token) => downloadDriveFile(token, file.id))
-        onProgress('Reading archive…')
+        const message = `Downloading ${file.name}`
+        onProgress({ message })
+        // El tamaño viene de los datos del archivo: no se depende de Content-Length en la descarga.
+        const total = (await run((token) => getDriveFileSize(token, file.id))) ?? undefined
+        const data = await run((token) =>
+          downloadDriveFile(token, file.id, (done) => onProgress({ message, done, total, unit: 'bytes' })),
+        )
+        onProgress({ message: `Reading ${file.name}…` })
         return readArchive(file.name, data)
       },
     }

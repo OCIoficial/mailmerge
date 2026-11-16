@@ -19,7 +19,8 @@ import type { AttachmentTree } from '../attachments/tree.ts'
 import { setTree, updateTemplate, useStore } from '../store.ts'
 import type { AttachmentPath } from '../merge/template.ts'
 import { useGoogle } from '../google/index.ts'
-import type { FileSource } from '../sources.ts'
+import type { FileSource, LoadProgress } from '../sources.ts'
+import { LoadingProgress } from './LoadingProgress.tsx'
 import { FileTree } from './FileTree.tsx'
 import { Notice } from './Notice.tsx'
 
@@ -33,12 +34,14 @@ export function AttachmentsPanel() {
   const tree = useStore((state) => state.tree)
   const paths = useStore((state) => state.template.attachments)
   const google = useGoogle()
-  const [loading, setLoading] = useState<string | null>(null)
+  const [loading, setLoading] = useState<LoadProgress | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [loadId, setLoadId] = useState(0)
 
   async function load(message: string, task: () => Promise<AttachmentTree | null>) {
-    setLoading(message)
+    setLoading({ message })
     setError(null)
+    setLoadId((id) => id + 1)
     try {
       const next = await task()
       if (next) onTreeChange(next)
@@ -50,10 +53,11 @@ export function AttachmentsPanel() {
   }
 
   const fromSource = (getSource: () => Promise<FileSource>) =>
-    load('Loading…', async () => (await getSource()).pick(setLoading))
+    // Mientras está abierta la ventana de Google para elegir, el recuadro queda detrás.
+    load('Opening Google Drive…', async () => (await getSource()).pick(setLoading))
 
   const fromUpload = (file: File | null) =>
-    file && load('Reading archive…', async () => readArchive(file.name, new Uint8Array(await file.arrayBuffer())))
+    file && load(`Reading ${file.name}…`, async () => readArchive(file.name, new Uint8Array(await file.arrayBuffer())))
 
   // Import dinámico dentro de DEV: el ejemplo no queda en el build de producción.
   const fromSample = () => fromSource(async () => (await import('../sample/index.ts')).sampleFileSource)
@@ -128,11 +132,8 @@ export function AttachmentsPanel() {
           )}
         </Stack>
 
-        {loading && (
-          <Text size="sm" c="dimmed">
-            {loading}
-          </Text>
-        )}
+        {/* key: cada carga empieza de cero los tiempos del indicador y de la barra. */}
+        {loading && <LoadingProgress key={loadId} progress={loading} />}
         {error && (
           <Notice tone="error" title="Could not load the files">
             {/* Una línea por archivo que falló. */}

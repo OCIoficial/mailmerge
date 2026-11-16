@@ -20,7 +20,17 @@ export interface SpreadsheetSource {
   loadSheet(spreadsheet: Spreadsheet, sheet: string): Promise<string[][]>
 }
 
+/** Qué está haciendo una carga larga, y cuánto lleva si se puede medir. */
+export interface LoadProgress {
+  /** Por ejemplo "Downloading alumnos.zip". */
+  message: string
+  /** Avance medible: sin total no hay barra, solo el indicador animado. */
+  done?: number
+  total?: number
+  unit?: 'bytes' | 'files'
+}
+
 export interface FileSource {
   /** Deja elegir y carga el árbol completo, con el contenido de cada archivo; null si se cancela. */
-  pick(onProgress: (message: string) => void): Promise<AttachmentTree | null>
+  pick(onProgress: (progress: LoadProgress) => void): Promise<AttachmentTree | null>
 }

@@ -156,12 +156,46 @@ export async function loadDriveTree(
   return buildTree(folder.name, entries, emptyDirs)
 }
 
-export async function downloadDriveFile(token: string, id: string): Promise<Uint8Array> {
+/** Tamaño en bytes según los datos del archivo; null si Drive no lo informa (archivos nativos de Google). */
+export async function getDriveFileSize(token: string, id: string): Promise<number | null> {
+  const response = await driveFetch(
+    token,
+    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(id)}?fields=size&supportsAllDrives=true`,
+  )
+  const { size } = (await response.json()) as { size?: string }
+  return size ? Number(size) : null
+}
+
+/** Descarga un archivo. Con onBytes, informa los bytes recibidos a medida que llegan. */
+export async function downloadDriveFile(
+  token: string,
+  id: string,
+  onBytes?: (received: number) => void,
+): Promise<Uint8Array> {
   const response = await driveFetch(
     token,
     `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(id)}?alt=media&supportsAllDrives=true`,
   )
-  return new Uint8Array(await response.arrayBuffer())
+  if (!onBytes || !response.body) return new Uint8Array(await response.arrayBuffer())
+
+  // Se lee por partes para poder contar lo recibido.
+  const chunks: Uint8Array[] = []
+  let received = 0
+  const reader = response.body.getReader()
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    chunks.push(value)
+    received += value.length
+    onBytes(received)
+  }
+  const data = new Uint8Array(received)
+  let offset = 0
+  for (const chunk of chunks) {
+    data.set(chunk, offset)
+    offset += chunk.length
+  }
+  return data
 }
 
 /** Exporta un archivo nativo de Google a PDF (la API limita la exportación a 10 MB). */
