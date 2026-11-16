@@ -1,16 +1,16 @@
-import { Badge, Button, Card, Checkbox, Group, Select, Stack, Text, Title } from '@mantine/core'
+import { Button, Card, Checkbox, Group, Select, Stack, Text, Title } from '@mantine/core'
 import { IconFlask, IconRefresh, IconTable } from '@tabler/icons-react'
 import { useState, type ReactNode } from 'react'
-import { getSheetValues, getSpreadsheet, type SpreadsheetInfo } from '../google/api.ts'
-import { useAuth } from '../google/AuthContext.tsx'
-import { pickSpreadsheet } from '../google/picker.ts'
+import { useGoogle } from '../google/index.ts'
 import { toDataset, type Dataset } from '../merge/dataset.ts'
 import { sheetKey, type SheetSettingsStore } from '../merge/sheetSettings.ts'
+import type { Spreadsheet, SpreadsheetSource } from '../sources.ts'
 import { Notice } from './Notice.tsx'
 
-interface LoadedSpreadsheet extends SpreadsheetInfo {
-  /** Solo para la planilla de ejemplo: los valores vienen del código, no de Google. */
-  sampleValues?: Record<string, string[][]>
+/** La planilla cargada y la fuente que la entrega, para cambiar de hoja o recargarla. */
+interface Loaded {
+  source: SpreadsheetSource
+  spreadsheet: Spreadsheet
 }
 
 interface Props {
@@ -22,16 +22,14 @@ interface Props {
 }
 
 export function SpreadsheetPanel({ onChange, settings, children }: Props) {
-  const auth = useAuth()
-  const [spreadsheet, setSpreadsheet] = useState<LoadedSpreadsheet | null>(null)
+  const google = useGoogle()
+  const [loaded, setLoaded] = useState<Loaded | null>(null)
+  const spreadsheet = loaded?.spreadsheet ?? null
   const [sheet, setSheet] = useState<string | null>(null)
   // Valores crudos de la hoja, para rearmar las filas al cambiar el checkbox sin volver a pedirlos.
   const [values, setValues] = useState<string[][] | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
-  const isSample = Boolean(spreadsheet?.sampleValues)
-  const canLoad = isSample || Boolean(auth.token)
 
   async function withLoading(task: () => Promise<void>) {
     setLoading(true)
@@ -48,14 +46,12 @@ export function SpreadsheetPanel({ onChange, settings, children }: Props) {
   const currentKey = spreadsheet && sheet ? sheetKey(spreadsheet.id, sheet) : null
   const hasHeader = currentKey ? settings.settingsFor(currentKey).hasHeader : false
 
-  function emit(info: LoadedSpreadsheet, name: string, next: string[][], header: boolean) {
-    onChange({ ...toDataset(next, header), sample: Boolean(info.sampleValues), sheetKey: sheetKey(info.id, name) })
+  function emit(info: Spreadsheet, name: string, next: string[][], header: boolean) {
+    onChange({ ...toDataset(next, header), sheetKey: sheetKey(info.id, name) })
   }
 
-  async function loadSheet(info: LoadedSpreadsheet, name: string) {
-    const next = info.sampleValues
-      ? (info.sampleValues[name] ?? [])
-      : await auth.run((token) => getSheetValues(token, info.id, name))
+  async function loadSheet({ source, spreadsheet: info }: Loaded, name: string) {
+    const next = await source.loadSheet(info, name)
     setSheet(name)
     setValues(next)
     // Cada hoja recuerda si su primera fila es encabezado.
@@ -68,28 +64,19 @@ export function SpreadsheetPanel({ onChange, settings, children }: Props) {
     if (values) emit(spreadsheet, sheet, values, next)
   }
 
-  const choose = () =>
+  const choose = (getSource: () => Promise<SpreadsheetSource>) =>
     withLoading(async () => {
-      const picked = await auth.run(pickSpreadsheet)
+      const source = await getSource()
+      const picked = await source.pick()
       if (!picked) return
-      const info = await auth.run((token) => getSpreadsheet(token, picked.id))
-      setSpreadsheet(info)
-      await loadSheet(info, info.sheets[0])
+      const next = { source, spreadsheet: picked }
+      setLoaded(next)
+      await loadSheet(next, picked.sheets[0])
     })
 
-  const loadSample = () =>
-    withLoading(async () => {
-      // Import dinámico dentro de DEV: el ejemplo no queda en el build de producción.
-      const { SAMPLE_SPREADSHEET } = await import('../sample/sampleSpreadsheet.ts')
-      const info: LoadedSpreadsheet = {
-        id: 'sample',
-        title: SAMPLE_SPREADSHEET.title,
-        sheets: Object.keys(SAMPLE_SPREADSHEET.sheets),
-        sampleValues: SAMPLE_SPREADSHEET.sheets,
-      }
-      setSpreadsheet(info)
-      await loadSheet(info, info.sheets[0])
-    })
+  const chooseFromGoogle = () => choose(async () => google.spreadsheets)
+  // Import dinámico dentro de DEV: el ejemplo no queda en el build de producción.
+  const chooseSample = () => choose(async () => (await import('../sample/index.ts')).sampleSpreadsheets)
 
   return (
     <Card withBorder h="100%">
@@ -98,9 +85,9 @@ export function SpreadsheetPanel({ onChange, settings, children }: Props) {
         <Group gap="sm">
           <Button
             leftSection={<IconTable size={16} />}
-            onClick={choose}
+            onClick={chooseFromGoogle}
             loading={loading && !spreadsheet}
-            disabled={!auth.token}
+            disabled={!google.signedIn}
           >
             {spreadsheet ? 'Change spreadsheet' : 'Choose spreadsheet'}
           </Button>
@@ -109,14 +96,14 @@ export function SpreadsheetPanel({ onChange, settings, children }: Props) {
               variant="light"
               color="grape"
               leftSection={<IconFlask size={16} />}
-              onClick={loadSample}
+              onClick={chooseSample}
               disabled={loading}
             >
               Use sample data
             </Button>
           )}
         </Group>
-        {!auth.token && !isSample && (
+        {!google.signedIn && !spreadsheet && (
           <Text size="sm" c="dimmed">
             Sign in with Google to choose a spreadsheet.
           </Text>
@@ -125,20 +112,14 @@ export function SpreadsheetPanel({ onChange, settings, children }: Props) {
           <>
             <Group gap="xs">
               <Text fw={500}>{spreadsheet.title}</Text>
-              {isSample && (
-                <Badge color="grape" variant="light">
-                  Sample data
-                </Badge>
-              )}
-              {sheet && !isSample && (
+              {sheet && (
                 <Button
                   size="compact-sm"
                   variant="subtle"
                   color="gray"
                   leftSection={<IconRefresh size={14} />}
                   loading={loading}
-                  disabled={!auth.token}
-                  onClick={() => withLoading(() => loadSheet(spreadsheet, sheet))}
+                  onClick={() => loaded && withLoading(() => loadSheet(loaded, sheet))}
                 >
                   Reload
                 </Button>
@@ -149,8 +130,8 @@ export function SpreadsheetPanel({ onChange, settings, children }: Props) {
               data={spreadsheet.sheets}
               value={sheet}
               allowDeselect={false}
-              disabled={!canLoad || loading}
-              onChange={(name) => name && withLoading(() => loadSheet(spreadsheet, name))}
+              disabled={loading}
+              onChange={(name) => name && loaded && withLoading(() => loadSheet(loaded, name))}
             />
           </>
         )}

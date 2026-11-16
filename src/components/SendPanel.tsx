@@ -57,7 +57,7 @@ interface PanelProps {
 }
 
 export function SendPanel({ controls, compact }: PanelProps) {
-  const { sender, sent, failed, pending, emails, blocking, sample } = controls
+  const { sender, sent, failed, pending, emails, blocking } = controls
 
   const testInput = (
     <TextInput
@@ -123,11 +123,6 @@ export function SendPanel({ controls, compact }: PanelProps) {
           </Notice>
         )}
 
-        {sample && (
-          <Text size="sm" c="dimmed">
-            Sample data can't be sent to its recipients. Use Send test instead.
-          </Text>
-        )}
         {blocking > 0 && <BlockingNote blocking={blocking} />}
       </Stack>
     </Card>
@@ -139,7 +134,7 @@ export function SendPanel({ controls, compact }: PanelProps) {
  * con una línea que explica por qué Send está deshabilitado.
  */
 export function SendBar({ controls }: { controls: SendControls }) {
-  const { sender, sent, failed, pending, emails, blocking, sample } = controls
+  const { sender, sent, failed, pending, emails, blocking } = controls
 
   if (sender.progress) {
     return (
@@ -181,12 +176,6 @@ export function SendBar({ controls }: { controls: SendControls }) {
     )
   } else if (blocking > 0) {
     status = <BlockingNote blocking={blocking} />
-  } else if (sample) {
-    status = (
-      <Text size="sm" c="dimmed">
-        Sample data can't be sent. Use Test.
-      </Text>
-    )
   }
 
   return (

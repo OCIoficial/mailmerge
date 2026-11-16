@@ -1,6 +1,6 @@
 import { notifications } from '@mantine/notifications'
 import { useState } from 'react'
-import { useAuth } from '../google/AuthContext.tsx'
+import { useGoogle } from '../google/index.ts'
 import { ADDRESS_FIELDS, type ProblemField, type RenderedEmail } from '../merge/render.ts'
 import type { Sender } from './useSender.ts'
 
@@ -10,11 +10,11 @@ export const plural = (n: number, one: string, many: string) => (n === 1 ? `1 ${
  * Estado del envío, compartido entre la tarjeta Send, la barra fija del teléfono y el
  * diálogo de confirmación. Vive en App para sobrevivir al cambiar entre lista y vista previa.
  */
-export function useSendControls(emails: RenderedEmail[], sender: Sender, sample: boolean) {
-  const auth = useAuth()
+export function useSendControls(emails: RenderedEmail[], sender: Sender) {
+  const google = useGoogle()
   // null = aún no editado: se usa el correo de la cuenta conectada.
   const [testAddress, setTestAddress] = useState<string | null>(null)
-  const testTo = testAddress ?? auth.email ?? ''
+  const testTo = testAddress ?? google.email ?? ''
   const [testing, setTesting] = useState(false)
   const [confirming, setConfirming] = useState(false)
 
@@ -49,15 +49,14 @@ export function useSendControls(emails: RenderedEmail[], sender: Sender, sample:
 
   return {
     sender,
-    sample,
-    signedIn: Boolean(auth.token),
-    account: auth.email,
+    signedIn: google.signedIn,
+    account: google.email,
     emails,
     testTo,
     setTestAddress,
     testing,
     sendTest,
-    canTest: Boolean(auth.token) && testTo.includes('@') && Boolean(firstRenders) && !sender.running,
+    canTest: google.signedIn && testTo.includes('@') && Boolean(firstRenders) && !sender.running,
     confirming,
     setConfirming,
     confirmSend,
@@ -66,7 +65,7 @@ export function useSendControls(emails: RenderedEmail[], sender: Sender, sample:
     pending,
     blocking,
     attachmentCount,
-    canSend: Boolean(auth.token) && !sample && blocking === 0,
+    canSend: google.signedIn && blocking === 0,
     sendLabel:
       sent.length === 0 ? `Send ${plural(pending.length, 'email', 'emails')}` : `Send remaining ${pending.length}`,
   }

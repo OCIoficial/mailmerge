@@ -1,3 +1,5 @@
+import type { Spreadsheet } from '../sources.ts'
+
 export class AuthError extends Error {}
 
 async function googleFetch<T>(token: string, url: string): Promise<T> {
@@ -20,13 +22,7 @@ export async function getUserEmail(token: string): Promise<string> {
   return about.user.emailAddress
 }
 
-export interface SpreadsheetInfo {
-  id: string
-  title: string
-  sheets: string[]
-}
-
-export async function getSpreadsheet(token: string, id: string): Promise<SpreadsheetInfo> {
+export async function getSpreadsheet(token: string, id: string): Promise<Spreadsheet> {
   const data = await googleFetch<{
     properties: { title: string }
     sheets: { properties: { title: string } }[]

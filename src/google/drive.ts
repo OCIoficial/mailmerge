@@ -153,7 +153,7 @@ export async function loadDriveTree(
     const count = failures.length === 1 ? '1 file' : `${failures.length} files`
     throw new Error([`Could not download ${count}:`, ...failures].join('\n'))
   }
-  return buildTree(folder.name, 'drive', entries, emptyDirs)
+  return buildTree(folder.name, entries, emptyDirs)
 }
 
 export async function downloadDriveFile(token: string, id: string): Promise<Uint8Array> {

@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { buildAttachment } from '../attachments/resolve.ts'
-import { AuthError } from '../google/api.ts'
-import { useAuth } from '../google/AuthContext.tsx'
+import { AuthError, SendLimitError, useGoogle } from '../google/index.ts'
 import type { RenderedEmail } from '../merge/render.ts'
-import { SendLimitError, sendRawMessage } from './gmail.ts'
 import { buildMessage, type MessageFields } from './mime.ts'
 
 export type SendStatus =
@@ -25,7 +23,7 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
  * y se reinicia con `reset()` al cambiar de planilla.
  */
 export function useSender() {
-  const auth = useAuth()
+  const google = useGoogle()
   const [statuses, setStatuses] = useState<Map<number, SendStatus>>(() => new Map())
   const [progress, setProgress] = useState<SendProgress | null>(null)
   /** Motivo por el que se detuvo un envío antes de terminar (sesión, límite diario o Stop). */
@@ -36,14 +34,14 @@ export function useSender() {
   const setStatus = (index: number, status: SendStatus) =>
     setStatuses((current) => new Map(current).set(index, status))
 
-  const run = auth.run
+  const sendMessage = google.sendMessage
   const deliver = useCallback(
     async (fields: MessageFields, email: RenderedEmail) => {
       // Los archivos ya están en el árbol: solo el envío necesita la sesión de Google.
       const message = buildMessage(fields, await Promise.all(email.attachments.map(buildAttachment)))
-      await run((token) => sendRawMessage(token, message))
+      await sendMessage(message)
     },
-    [run],
+    [sendMessage],
   )
 
   /** Envía los correos que aún no se han enviado, de a uno. Sigue ante errores de un correo. */

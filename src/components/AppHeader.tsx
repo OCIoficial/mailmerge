@@ -14,7 +14,7 @@ import {
 } from '@mantine/core'
 import { IconCheck, IconListCheck, IconLogout, IconPencil } from '@tabler/icons-react'
 import type { ReactNode } from 'react'
-import { useAuth } from '../google/AuthContext.tsx'
+import { useGoogle } from '../google/index.ts'
 import classes from './AppHeader.module.css'
 
 const iconProps = {
@@ -147,7 +147,7 @@ interface Props {
 }
 
 export function AppHeader({ view, onViewChange, problemCount }: Props) {
-  const auth = useAuth()
+  const google = useGoogle()
   // Mantine guarda la elección en localStorage.
   const { colorScheme, setColorScheme } = useMantineColorScheme()
 
@@ -191,24 +191,24 @@ export function AppHeader({ view, onViewChange, problemCount }: Props) {
           }))}
         />
 
-        {auth.token ? (
+        {google.signedIn ? (
           <Menu position="bottom-end" width={240} withinPortal>
             <Menu.Target>
-              <UnstyledButton className={classes.account} aria-label={`Account: ${auth.email ?? ''}`}>
-                <Avatar name={auth.email ?? undefined} color="initials" size={34} />
+              <UnstyledButton className={classes.account} aria-label={`Account: ${google.email ?? ''}`}>
+                <Avatar name={google.email ?? undefined} color="initials" size={34} />
               </UnstyledButton>
             </Menu.Target>
             <Menu.Dropdown>
               <Menu.Label>Signed in as</Menu.Label>
               <Text size="sm" px="sm" pb="xs" truncate>
-                {auth.email}
+                {google.email}
               </Text>
               <Box hiddenFrom="sm">
                 <Menu.Divider />
                 <ThemeMenuItems />
               </Box>
               <Menu.Divider />
-              <Menu.Item leftSection={<IconLogout size={16} />} onClick={auth.signOut}>
+              <Menu.Item leftSection={<IconLogout size={16} />} onClick={google.signOut}>
                 Sign out
               </Menu.Item>
             </Menu.Dropdown>
@@ -227,12 +227,12 @@ export function AppHeader({ view, onViewChange, problemCount }: Props) {
             </Menu>
             <UnstyledButton
               className={classes.google}
-              onClick={auth.signIn}
-              disabled={auth.connecting}
-              data-disabled={auth.connecting || undefined}
+              onClick={google.signIn}
+              disabled={google.connecting}
+              data-disabled={google.connecting || undefined}
             >
               <Group gap={10} wrap="nowrap">
-                {auth.connecting ? <Loader size={16} /> : <GoogleLogo />}
+                {google.connecting ? <Loader size={16} /> : <GoogleLogo />}
                 {/* En el teléfono basta "Sign in": el logo de Google ya dice con qué cuenta. */}
                 <Box component="span" visibleFrom="sm">
                   Sign in with Google

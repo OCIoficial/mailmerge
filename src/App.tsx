@@ -12,7 +12,7 @@ import { useSender } from './mail/useSender.ts'
 import { SpreadsheetPanel } from './components/SpreadsheetPanel.tsx'
 import { TemplateEditor } from './components/TemplateEditor.tsx'
 import { missingConfig } from './config.ts'
-import { useAuth } from './google/AuthContext.tsx'
+import { useGoogle } from './google/index.ts'
 import type { Dataset } from './merge/dataset.ts'
 import { normalizeDataset, type Normalization } from './merge/normalize.ts'
 import { DEFAULT_SHEET_SETTINGS, useSheetSettings } from './merge/sheetSettings.ts'
@@ -25,7 +25,7 @@ import { useIsMobile } from './useIsMobile.ts'
 const viewFromHash = (): View => (window.location.hash === '#review' ? 'review' : 'edit')
 
 function App() {
-  const auth = useAuth()
+  const google = useGoogle()
   const mobile = useIsMobile()
   const [view, setView] = useState<View>(viewFromHash)
   useEffect(() => {
@@ -104,7 +104,7 @@ function App() {
   )
   const emails = useMemo(() => allEmails.filter((email) => !excluded.has(email.index)), [allEmails, excluded])
   const problemCount = emails.filter((email) => email.problems.length > 0).length
-  const send = useSendControls(emails, sender, Boolean(dataset?.sample))
+  const send = useSendControls(emails, sender)
 
   // En el teléfono, Review fija Test y Send sobre las pestañas; el pie crece con la barra.
   const showSendBar = mobile && view === 'review' && allEmails.length > 0
@@ -124,9 +124,9 @@ function App() {
               Missing environment variables: {missingConfig.join(', ')}. See <code>.env.example</code>.
             </Notice>
           )}
-          {auth.error && (
+          {google.error && (
             <Notice tone="error" title="Could not sign in with Google">
-              {auth.error}
+              {google.error}
             </Notice>
           )}
           {/* Edit se oculta en vez de desmontarse, para conservar el estado de sus paneles. */}

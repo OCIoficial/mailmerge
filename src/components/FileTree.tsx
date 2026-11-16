@@ -1,14 +1,8 @@
-import { Badge, Button, ScrollArea, Text } from '@mantine/core'
+import { Button, ScrollArea, Text } from '@mantine/core'
 import { IconX } from '@tabler/icons-react'
 import { useState, type CSSProperties } from 'react'
 import { filesIn, formatSize, type AttachmentTree, type TreeNode } from '../attachments/tree.ts'
 import classes from './FileTree.module.css'
-
-const ORIGIN_LABELS: Record<AttachmentTree['origin'], string> = {
-  drive: 'Drive folder',
-  archive: 'Archive',
-  sample: 'Sample files',
-}
 
 const iconProps = {
   width: 16,
@@ -125,9 +119,6 @@ export function FileTree({ tree, onRemove }: Props) {
         <Text size="sm" fw={500} truncate style={{ flex: 1, minWidth: 0 }} title={tree.name}>
           {tree.name}
         </Text>
-        <Badge size="sm" variant="light" color={tree.origin === 'sample' ? 'grape' : 'gray'} style={{ flex: 'none' }}>
-          {ORIGIN_LABELS[tree.origin]}
-        </Badge>
         <Text size="xs" c="dimmed" style={{ flex: 'none', fontVariantNumeric: 'tabular-nums' }}>
           {tree.fileCount} files, {formatSize(tree.totalSize)}
         </Text>

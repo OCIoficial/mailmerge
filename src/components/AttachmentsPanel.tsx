@@ -17,9 +17,8 @@ import { useState } from 'react'
 import { readArchive } from '../attachments/archive.ts'
 import type { AttachmentTree } from '../attachments/tree.ts'
 import type { AttachmentPath } from '../merge/template.ts'
-import { useAuth } from '../google/AuthContext.tsx'
-import { downloadDriveFile, loadDriveTree } from '../google/drive.ts'
-import { pickArchive, pickFolder } from '../google/picker.ts'
+import { useGoogle } from '../google/index.ts'
+import type { FileSource } from '../sources.ts'
 import { FileTree } from './FileTree.tsx'
 import { Notice } from './Notice.tsx'
 
@@ -33,7 +32,7 @@ interface Props {
 }
 
 export function AttachmentsPanel({ tree, onTreeChange, paths, onPathsChange }: Props) {
-  const auth = useAuth()
+  const google = useGoogle()
   const [loading, setLoading] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -50,39 +49,14 @@ export function AttachmentsPanel({ tree, onTreeChange, paths, onPathsChange }: P
     }
   }
 
-  const fromDriveFolder = () =>
-    load('Reading folder…', async () => {
-      const folder = await auth.run(pickFolder)
-      if (!folder) return null
-      return auth.run((token) =>
-        loadDriveTree(token, folder, (progress) =>
-          setLoading(
-            progress.phase === 'listing'
-              ? `Reading folder… ${progress.files} files`
-              : `Downloading ${progress.done} of ${progress.total} files…`,
-          ),
-        ),
-      )
-    })
-
-  const fromDriveArchive = () =>
-    load('Downloading archive…', async () => {
-      const file = await auth.run(pickArchive)
-      if (!file) return null
-      const data = await auth.run((token) => downloadDriveFile(token, file.id))
-      setLoading('Reading archive…')
-      return readArchive(file.name, data)
-    })
+  const fromSource = (getSource: () => Promise<FileSource>) =>
+    load('Loading…', async () => (await getSource()).pick(setLoading))
 
   const fromUpload = (file: File | null) =>
     file && load('Reading archive…', async () => readArchive(file.name, new Uint8Array(await file.arrayBuffer())))
 
-  const fromSample = () =>
-    load('Loading sample files…', async () => {
-      // Import dinámico dentro de DEV: el ejemplo no queda en el build de producción.
-      const { sampleFiles } = await import('../sample/sampleFiles.ts')
-      return sampleFiles()
-    })
+  // Import dinámico dentro de DEV: el ejemplo no queda en el build de producción.
+  const fromSample = () => fromSource(async () => (await import('../sample/index.ts')).sampleFileSource)
 
   const updatePath = (index: number, patch: Partial<AttachmentPath>) =>
     onPathsChange(paths.map((p, i) => (i === index ? { ...p, ...patch } : p)))
@@ -104,8 +78,8 @@ export function AttachmentsPanel({ tree, onTreeChange, paths, onPathsChange }: P
                 variant="default"
                 fullWidth
                 leftSection={<IconBrandGoogleDrive size={16} />}
-                disabled={!auth.token || !!loading}
-                onClick={fromDriveFolder}
+                disabled={!google.signedIn || !!loading}
+                onClick={() => fromSource(async () => google.driveFolder)}
               >
                 Drive folder
               </Button>
@@ -113,8 +87,8 @@ export function AttachmentsPanel({ tree, onTreeChange, paths, onPathsChange }: P
                 variant="default"
                 fullWidth
                 leftSection={<IconFileZip size={16} />}
-                disabled={!auth.token || !!loading}
-                onClick={fromDriveArchive}
+                disabled={!google.signedIn || !!loading}
+                onClick={() => fromSource(async () => google.driveArchive)}
               >
                 Drive archive
               </Button>

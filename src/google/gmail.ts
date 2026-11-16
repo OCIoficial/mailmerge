@@ -1,4 +1,4 @@
-import { AuthError } from '../google/api.ts'
+import { AuthError } from './api.ts'
 
 /** Límite de la Gmail API para un mensaje enviado por el endpoint de subida. */
 export const MAX_MESSAGE_SIZE = 35 * 1024 * 1024

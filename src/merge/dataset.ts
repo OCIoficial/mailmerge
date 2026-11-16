@@ -10,8 +10,6 @@ export type Row = Record<string, string>
 export interface Dataset {
   columns: Column[]
   rows: Row[]
-  /** Datos de ejemplo (solo desarrollo): no se pueden enviar. */
-  sample?: boolean
   /** Hoja de origen (ver sheetKey), para su configuración guardada. */
   sheetKey?: string
 }

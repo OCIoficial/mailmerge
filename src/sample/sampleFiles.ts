@@ -22,5 +22,5 @@ export function sampleFiles() {
   entries.push(...cursos.map((curso) => file(`Cursos/${curso}/horario.txt`, `Horario ${curso}\n`)))
   entries.push(file('Reglamento interno 2026.txt', 'Reglamento interno\n'))
 
-  return buildTree('Documentos colegio (sample)', 'sample', entries)
+  return buildTree('Documentos colegio (sample)', entries)
 }

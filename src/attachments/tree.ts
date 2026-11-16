@@ -26,7 +26,6 @@ export type TreeNode = FileNode | DirNode
 
 export interface AttachmentTree {
   name: string
-  origin: 'drive' | 'archive' | 'sample'
   root: DirNode
   fileCount: number
   totalSize: number
@@ -67,7 +66,7 @@ let nextId = 0
 const newId = () => `n${nextId++}`
 
 /** Arma el árbol a partir de una lista plana de archivos; las carpetas se crean según las rutas. */
-export function buildTree(name: string, origin: AttachmentTree['origin'], entries: TreeEntry[], emptyDirs: string[] = []): AttachmentTree {
+export function buildTree(name: string, entries: TreeEntry[], emptyDirs: string[] = []): AttachmentTree {
   const root: DirNode = { kind: 'dir', id: newId(), name, children: [] }
 
   function dirAt(segments: string[]): DirNode {
@@ -102,7 +101,7 @@ export function buildTree(name: string, origin: AttachmentTree['origin'], entrie
   }
 
   sortTree(root)
-  return { name, origin, root, fileCount: entries.length, totalSize }
+  return { name, root, fileCount: entries.length, totalSize }
 }
 
 function sortTree(dir: DirNode) {
