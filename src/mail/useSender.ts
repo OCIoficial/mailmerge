@@ -38,11 +38,11 @@ export function useSender() {
 
   const run = auth.run
   const deliver = useCallback(
-    (fields: MessageFields, email: RenderedEmail) =>
-      run(async (token) => {
-        const attachments = await Promise.all(email.attachments.map(buildAttachment))
-        await sendRawMessage(token, buildMessage(fields, attachments))
-      }),
+    async (fields: MessageFields, email: RenderedEmail) => {
+      // Los archivos ya están en el árbol: solo el envío necesita la sesión de Google.
+      const message = buildMessage(fields, await Promise.all(email.attachments.map(buildAttachment)))
+      await run((token) => sendRawMessage(token, message))
+    },
     [run],
   )
 

@@ -52,10 +52,19 @@ async function listChildren(token: string, folderId: string): Promise<DriveFile[
 }
 
 /** Tope para el total de una carpeta: protege de elegir por error una carpeta enorme. */
-export const MAX_FOLDER_SIZE = 200 * 1024 * 1024
+const MAX_FOLDER_SIZE = 200 * 1024 * 1024
 
-/** Descargas en paralelo, como el listado de carpetas, para no exceder las cuotas de la API. */
+/** Pedidos en paralelo a Drive (listar carpetas o descargar archivos), para no exceder las cuotas de la API. */
 const CONCURRENCY = 5
+
+/** Ejecuta fn sobre cada elemento, con a lo más `limit` en paralelo. */
+async function forEachConcurrently<T>(items: T[], limit: number, fn: (item: T) => Promise<void>): Promise<void> {
+  let next = 0
+  const worker = async () => {
+    while (next < items.length) await fn(items[next++])
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker))
+}
 
 interface PendingFile {
   path: string
@@ -84,14 +93,13 @@ export async function loadDriveTree(
   const emptyDirs: string[] = []
   // Evita ciclos con atajos a carpetas que contienen al atajo.
   const visited = new Set<string>([folder.id])
-  let queue = [{ id: folder.id, path: '' }]
+  // Un nivel del árbol a la vez: las subcarpetas encontradas forman el nivel siguiente.
+  let level = [{ id: folder.id, path: '' }]
 
-  while (queue.length > 0) {
-    const batch = queue.slice(0, CONCURRENCY)
-    queue = queue.slice(CONCURRENCY)
-    const results = await Promise.all(batch.map((dir) => listChildren(token, dir.id).then((files) => ({ dir, files }))))
-
-    for (const { dir, files } of results) {
+  while (level.length > 0) {
+    const nextLevel: typeof level = []
+    await forEachConcurrently(level, CONCURRENCY, async (dir) => {
+      const files = await listChildren(token, dir.id)
       if (files.length === 0 && dir.path) emptyDirs.push(dir.path)
       for (const file of files) {
         const id = file.shortcutDetails?.targetId ?? file.id
@@ -100,7 +108,7 @@ export async function loadDriveTree(
         if (mimeType === FOLDER) {
           if (!visited.has(id)) {
             visited.add(id)
-            queue.push({ id, path: `${path}/` })
+            nextLevel.push({ id, path: `${path}/` })
           }
         } else if (mimeType.startsWith('application/vnd.google-apps.')) {
           if (EXPORTABLE.has(mimeType)) pending.push({ path, id, mimeType, exportPdf: true, size: 0 })
@@ -108,8 +116,9 @@ export async function loadDriveTree(
           pending.push({ path, id, mimeType, exportPdf: false, size: Number(file.size ?? 0) })
         }
       }
-    }
-    onProgress?.({ phase: 'listing', files: pending.length })
+      onProgress?.({ phase: 'listing', files: pending.length })
+    })
+    level = nextLevel
   }
 
   // Los exportados no tienen tamaño hasta exportarlos; el tope cuenta solo los conocidos.
@@ -124,28 +133,21 @@ export async function loadDriveTree(
   const failures: string[] = []
   let done = 0
   onProgress?.({ phase: 'downloading', done, total: pending.length })
-  let next = 0
-  async function worker() {
-    while (next < pending.length) {
-      const file = pending[next++]
-      try {
-        const data = file.exportPdf
-          ? await exportDriveFileAsPdf(token, file.id)
-          : await downloadDriveFile(token, file.id)
-        entries.push(
-          file.exportPdf
-            ? { path: file.path, data, mimeType: 'application/pdf', filename: `${file.path.split('/').pop()}.pdf` }
-            : { path: file.path, data, mimeType: file.mimeType },
-        )
-      } catch (e) {
-        // Sin sesión no tiene sentido seguir: se pide iniciar sesión de nuevo.
-        if (e instanceof AuthError) throw e
-        failures.push(`${file.path}: ${(e as Error).message}`)
-      }
-      onProgress?.({ phase: 'downloading', done: ++done, total: pending.length })
+  await forEachConcurrently(pending, CONCURRENCY, async (file) => {
+    try {
+      const data = file.exportPdf ? await exportDriveFileAsPdf(token, file.id) : await downloadDriveFile(token, file.id)
+      entries.push(
+        file.exportPdf
+          ? { path: file.path, data, mimeType: 'application/pdf', filename: `${file.path.split('/').pop()}.pdf` }
+          : { path: file.path, data, mimeType: file.mimeType },
+      )
+    } catch (e) {
+      // Sin sesión no tiene sentido seguir: se pide iniciar sesión de nuevo.
+      if (e instanceof AuthError) throw e
+      failures.push(`${file.path}: ${(e as Error).message}`)
     }
-  }
-  await Promise.all(Array.from({ length: Math.min(CONCURRENCY, pending.length) }, worker))
+    onProgress?.({ phase: 'downloading', done: ++done, total: pending.length })
+  })
 
   if (failures.length > 0) {
     const count = failures.length === 1 ? '1 file' : `${failures.length} files`
