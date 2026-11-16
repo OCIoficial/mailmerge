@@ -260,3 +260,9 @@
   color: var(--mantine-color-red-text);
   font-weight: 700;
 }
+
+/* Sin confirmar: pudo haber salido; naranja como las advertencias, no rojo como un error. */
+.unconfirmed {
+  color: var(--mantine-color-orange-text);
+  font-weight: 700;
+}

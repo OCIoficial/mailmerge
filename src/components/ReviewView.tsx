@@ -132,6 +132,11 @@ function EmailRow({ email, status }: { email: RenderedEmail; status?: SendStatus
             ✕
           </span>
         )}
+        {status?.state === 'unconfirmed' && (
+          <span className={classes.unconfirmed} title="Not confirmed: may have been sent">
+            ?
+          </span>
+        )}
         {email.attachments.length > 0 && (
           <span className={classes.clip} title={`${email.attachments.length} attachments`}>
             <PaperclipIcon />
@@ -175,6 +180,11 @@ function EmailDetail({
       {status?.state === 'failed' && (
         <Notice tone="error" title="Not sent">
           {status.error}
+        </Notice>
+      )}
+      {status?.state === 'unconfirmed' && (
+        <Notice tone="warning" title="Not confirmed">
+          {status.error} "Send remaining" skips it; retry it from the Send panel if it wasn't sent.
         </Notice>
       )}
       {status?.state === 'sent' && (

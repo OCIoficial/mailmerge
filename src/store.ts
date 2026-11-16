@@ -14,7 +14,15 @@ import { EMPTY_TEMPLATE, type EmailTemplate } from './merge/template.ts'
  * primitivos. Un selector que arma un objeto o arreglo nuevo en cada llamada re-dibuja sin fin.
  */
 
-export type SendStatus = { state: 'sending' } | { state: 'sent'; at: number } | { state: 'failed'; error: string }
+export type SendStatus =
+  | { state: 'sending' }
+  | { state: 'sent'; at: number }
+  | { state: 'failed'; error: string }
+  /** Sin respuesta de Gmail: pudo haberse enviado. "Send remaining" no lo reintenta. */
+  | { state: 'unconfirmed'; error: string }
+
+/** Qué envía el diálogo de confirmación: los pendientes, o reintentar los no confirmados. */
+export type SendMode = 'pending' | 'unconfirmed'
 
 export interface SendProgress {
   done: number
@@ -52,7 +60,8 @@ interface State {
   /** null = aún no editada: se usa el correo de la cuenta conectada. */
   testAddress: string | null
   testing: boolean
-  confirming: boolean
+  /** Diálogo de confirmación abierto, y para qué envío. */
+  confirming: SendMode | false
 }
 
 // --- localStorage: mismas claves y formato que antes, así no se pierde lo guardado ------------

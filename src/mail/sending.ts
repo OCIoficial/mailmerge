@@ -1,9 +1,9 @@
 import { notifications } from '@mantine/notifications'
 import { useEffect, useMemo } from 'react'
 import { buildAttachment } from '../attachments/resolve.ts'
-import { AuthError, SendLimitError, useGoogle } from '../google/index.ts'
+import { AuthError, SendLimitError, UnconfirmedSendError, useGoogle } from '../google/index.ts'
 import { ADDRESS_FIELDS, type ProblemField, type RenderedEmail } from '../merge/render.ts'
-import { flushEmails, setSendState, setStatus, useStore } from '../store.ts'
+import { flushEmails, setSendState, setStatus, useStore, type SendMode, type SendStatus } from '../store.ts'
 import { buildMessage, type MessageFields } from './mime.ts'
 
 export const plural = (n: number, one: string, many: string) => (n === 1 ? `1 ${one}` : `${n} ${many}`)
@@ -22,12 +22,20 @@ async function deliver(sendMessage: SendMessage, fields: MessageFields, email: R
   await sendMessage(message)
 }
 
-/** Envía los correos incluidos que aún no se han enviado, de a uno. Sigue ante errores de un correo. */
-async function sendAll(sendMessage: SendMessage) {
+/** Pendiente: ni enviado ni sin confirmar (un no confirmado pudo haber salido; se reintenta aparte). */
+const isPending = (status: SendStatus | undefined) => status?.state !== 'sent' && status?.state !== 'unconfirmed'
+
+/**
+ * Envía, de a uno, los correos incluidos pendientes, o con mode "unconfirmed" solo los no
+ * confirmados. Sigue ante errores de un correo.
+ */
+async function sendAll(sendMessage: SendMessage, mode: SendMode) {
   // Si quedó texto sin procesar (se acaba de escribir), los correos se regeneran antes de enviar.
   flushEmails()
   const { emails, statuses } = useStore.getState()
-  const pending = emails.filter((email) => statuses.get(email.index)?.state !== 'sent')
+  const pending = emails.filter((email) =>
+    mode === 'pending' ? isPending(statuses.get(email.index)) : statuses.get(email.index)?.state === 'unconfirmed',
+  )
   if (pending.length === 0) return
   stopRequested = false
   setSendState({ stopReason: null, progress: { done: 0, total: pending.length } })
@@ -44,6 +52,12 @@ async function sendAll(sendMessage: SendMessage) {
       setStatus(email.index, { state: 'sent', at: Date.now() })
     } catch (e) {
       const error = (e as Error).message
+      if (e instanceof UnconfirmedSendError) {
+        // Si se cortó la conexión, los siguientes fallarían igual: se detiene aquí.
+        setStatus(email.index, { state: 'unconfirmed', error })
+        setSendState({ stopReason: 'The connection was lost.' })
+        break
+      }
       setStatus(email.index, { state: 'failed', error })
       // Sin sesión o sin cuota no tiene sentido seguir: el resto queda pendiente.
       if (e instanceof AuthError || e instanceof SendLimitError) {
@@ -75,7 +89,12 @@ async function sendTest(sendMessage: SendMessage, address: string) {
     await deliver(sendMessage, fields, email)
     notifications.show({ color: 'green', message: `Test email sent to ${address}.` })
   } catch (e) {
-    notifications.show({ color: 'red', title: 'Test email not sent', message: (e as Error).message })
+    const unconfirmed = e instanceof UnconfirmedSendError
+    notifications.show({
+      color: unconfirmed ? 'orange' : 'red',
+      title: unconfirmed ? 'Test email not confirmed' : 'Test email not sent',
+      message: (e as Error).message,
+    })
   } finally {
     setSendState({ testing: false })
   }
@@ -109,7 +128,8 @@ export function useSendControls() {
   const summary = useMemo(() => {
     const sent = emails.filter((email) => statuses.get(email.index)?.state === 'sent')
     const failed = emails.filter((email) => statuses.get(email.index)?.state === 'failed')
-    const pending = emails.filter((email) => statuses.get(email.index)?.state !== 'sent')
+    const pending = emails.filter((email) => isPending(statuses.get(email.index)))
+    const unconfirmed = emails.filter((email) => statuses.get(email.index)?.state === 'unconfirmed')
     // La prueba ignora los destinatarios de la fila, así que solo importan los errores de render.
     const firstRenders = emails[0]?.problems.every((problem) =>
       (ADDRESS_FIELDS as ProblemField[]).includes(problem.field),
@@ -118,6 +138,7 @@ export function useSendControls() {
       sent,
       failed,
       pending,
+      unconfirmed,
       firstRenders: Boolean(firstRenders),
       // Solo bloquean los problemas de los correos que faltan por enviar.
       blocking: pending.filter((email) => email.problems.length > 0).length,
@@ -143,15 +164,17 @@ export function useSendControls() {
     sendTest: () => sendTest(sendMessage, testTo),
     canTest: google.signedIn && testTo.includes('@') && summary.firstRenders && !running,
     confirming,
-    setConfirming: (confirming: boolean) => setSendState({ confirming }),
+    setConfirming: (confirming: SendMode | false) => setSendState({ confirming }),
     confirmSend: () => {
+      if (!confirming) return
       setSendState({ confirming: false })
-      void sendAll(sendMessage)
+      void sendAll(sendMessage, confirming)
     },
     stop: () => {
       stopRequested = true
     },
     canSend: google.signedIn && summary.blocking === 0,
+    retryLabel: `Retry ${plural(summary.unconfirmed.length, 'unconfirmed email', 'unconfirmed emails')}`,
     sendLabel:
       summary.sent.length === 0
         ? `Send ${plural(summary.pending.length, 'email', 'emails')}`
