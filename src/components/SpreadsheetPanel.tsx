@@ -1,6 +1,7 @@
 import { Button, Card, Checkbox, Group, Select, Stack, Text, Title } from '@mantine/core'
-import { IconFlask, IconRefresh, IconTable } from '@tabler/icons-react'
+import { IconClipboard, IconFlask, IconRefresh, IconTable } from '@tabler/icons-react'
 import { useState, type ReactNode } from 'react'
+import { clipboardSpreadsheets } from '../clipboard.ts'
 import { useGoogle } from '../google/index.ts'
 import { toDataset, type Dataset } from '../merge/dataset.ts'
 import { sheetKey, type SheetSettingsStore } from '../merge/sheetSettings.ts'
@@ -75,6 +76,7 @@ export function SpreadsheetPanel({ onChange, settings, children }: Props) {
     })
 
   const chooseFromGoogle = () => choose(async () => google.spreadsheets)
+  const chooseFromClipboard = () => choose(async () => clipboardSpreadsheets)
   // Import dinámico dentro de DEV: el ejemplo no queda en el build de producción.
   const chooseSample = () => choose(async () => (await import('../sample/index.ts')).sampleSpreadsheets)
 
@@ -91,6 +93,15 @@ export function SpreadsheetPanel({ onChange, settings, children }: Props) {
           >
             {spreadsheet ? 'Change spreadsheet' : 'Choose spreadsheet'}
           </Button>
+          {/* No necesita Google: las celdas vienen del portapapeles. */}
+          <Button
+            variant="default"
+            leftSection={<IconClipboard size={16} />}
+            onClick={chooseFromClipboard}
+            disabled={loading}
+          >
+            Paste from clipboard
+          </Button>
           {import.meta.env.DEV && (
             <Button
               variant="light"
@@ -105,7 +116,7 @@ export function SpreadsheetPanel({ onChange, settings, children }: Props) {
         </Group>
         {!google.signedIn && !spreadsheet && (
           <Text size="sm" c="dimmed">
-            Sign in with Google to choose a spreadsheet.
+            Sign in with Google to choose a spreadsheet, or copy cells in one and paste them here.
           </Text>
         )}
         {spreadsheet && (
@@ -125,14 +136,17 @@ export function SpreadsheetPanel({ onChange, settings, children }: Props) {
                 </Button>
               )}
             </Group>
-            <Select
-              label="Sheet"
-              data={spreadsheet.sheets}
-              value={sheet}
-              allowDeselect={false}
-              disabled={loading}
-              onChange={(name) => name && loaded && withLoading(() => loadSheet(loaded, name))}
-            />
+            {/* Con una sola hoja no hay nada que elegir. */}
+            {spreadsheet.sheets.length > 1 && (
+              <Select
+                label="Sheet"
+                data={spreadsheet.sheets}
+                value={sheet}
+                allowDeselect={false}
+                disabled={loading}
+                onChange={(name) => name && loaded && withLoading(() => loadSheet(loaded, name))}
+              />
+            )}
           </>
         )}
         {/* Por hoja: aparece cuando hay una hoja cargada. */}
