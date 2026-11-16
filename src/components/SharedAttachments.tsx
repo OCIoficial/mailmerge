@@ -1,8 +1,8 @@
 import { ActionIcon, Button, Group, Loader as Spinner, SimpleGrid, Stack, Text, TextInput } from '@mantine/core'
 import { useFileDialog } from '@mantine/hooks'
 import {
-  IconBrandGoogleDrive,
   IconFile,
+  IconFiles,
   IconFileZip,
   IconFlask,
   IconFolder,
@@ -85,7 +85,13 @@ function SharedRow({ item, handle }: { item: SharedAttachment; handle: ReactNode
             {loader.progress ? <Spinner size={14} /> : <IconRefresh size={16} />}
           </ActionIcon>
         )}
-        <ActionIcon variant="subtle" color="gray" aria-label={`Remove ${file.filename}`} onClick={() => remove(item.id)}>
+        <ActionIcon
+          variant="subtle"
+          color="gray"
+          aria-label={`Remove ${file.filename}`}
+          title="Remove"
+          onClick={() => remove(item.id)}
+        >
           <IconX size={16} />
         </ActionIcon>
       </Group>
@@ -191,18 +197,6 @@ export function SharedAttachments() {
 
       <div style={{ containerType: 'inline-size' }}>
         <SimpleGrid type="container" cols={{ base: 1, '500px': 3 }} spacing="xs">
-          <Button variant="default" fullWidth leftSection={<IconUpload size={16} />} disabled={busy} onClick={dialog.open}>
-            Upload files
-          </Button>
-          <Button
-            variant="default"
-            fullWidth
-            leftSection={<IconBrandGoogleDrive size={16} />}
-            disabled={!google.signedIn || busy}
-            onClick={fromDriveFiles}
-          >
-            Drive files
-          </Button>
           <Button
             variant="default"
             fullWidth
@@ -211,6 +205,18 @@ export function SharedAttachments() {
             onClick={fromDriveFolder}
           >
             Drive folder
+          </Button>
+          <Button
+            variant="default"
+            fullWidth
+            leftSection={<IconFiles size={16} />}
+            disabled={!google.signedIn || busy}
+            onClick={fromDriveFiles}
+          >
+            Drive files
+          </Button>
+          <Button variant="default" fullWidth leftSection={<IconUpload size={16} />} disabled={busy} onClick={dialog.open}>
+            Upload files
           </Button>
         </SimpleGrid>
       </div>

@@ -1,10 +1,10 @@
-import { ActionIcon, Button, Checkbox, Group, Menu, SimpleGrid, Stack, Text, TextInput } from '@mantine/core'
+import { ActionIcon, Button, Checkbox, Group, Loader as Spinner, Menu, SimpleGrid, Stack, Text, TextInput } from '@mantine/core'
 import { useFileDialog } from '@mantine/hooks'
 import {
   IconArrowsExchange,
-  IconBrandGoogleDrive,
   IconFileZip,
   IconFlask,
+  IconFolder,
   IconPlus,
   IconRefresh,
   IconUpload,
@@ -170,7 +170,7 @@ function SourceCard({ source, handle }: { source: PathSource; handle: ReactNode 
           disabled={!google.signedIn || busy}
           onClick={reload}
         >
-          <IconRefresh size={16} />
+          {busy ? <Spinner size={14} /> : <IconRefresh size={16} />}
         </ActionIcon>
       )}
       <Menu position="bottom-end" withinPortal>
@@ -181,7 +181,7 @@ function SourceCard({ source, handle }: { source: PathSource; handle: ReactNode 
         </Menu.Target>
         <Menu.Dropdown>
           <Menu.Label>Replace, keeping the paths</Menu.Label>
-          <Menu.Item leftSection={<IconBrandGoogleDrive size={14} />} disabled={!pickers.canUseDrive} onClick={() => pickers.pickDrive('folder')}>
+          <Menu.Item leftSection={<IconFolder size={14} />} disabled={!pickers.canUseDrive} onClick={() => pickers.pickDrive('folder')}>
             Drive folder
           </Menu.Item>
           <Menu.Item leftSection={<IconFileZip size={14} />} disabled={!pickers.canUseDrive} onClick={() => pickers.pickDrive('archive')}>
@@ -293,7 +293,7 @@ export function PathSources() {
           <Button
             variant="default"
             fullWidth
-            leftSection={<IconBrandGoogleDrive size={16} />}
+            leftSection={<IconFolder size={16} />}
             disabled={!pickers.canUseDrive || busy}
             onClick={() => pickers.pickDrive('folder')}
           >
