@@ -17,7 +17,7 @@ import { IconArrowLeft, IconChevronLeft, IconChevronRight } from '@tabler/icons-
 import { useRef, useState } from 'react'
 import type { ResolvedAttachment } from '../attachments/resolve.ts'
 import { formatSize } from '../attachments/tree.ts'
-import { setExcluded, useStore, type SendStatus } from '../store.ts'
+import { reviewList, setExcluded, useSending, useStore, type SendStatus } from '../store.ts'
 import { SendPanel } from './SendPanel.tsx'
 import { rangeBetween, setIncluded } from '../merge/exclusion.ts'
 import { PROBLEM_LABELS, type RenderedEmail } from '../merge/render.ts'
@@ -247,6 +247,8 @@ export function ReviewView() {
   const templateErrors = useStore((state) => state.compiled.errors)
   const problemCount = useStore((state) => state.problemCount)
   const statuses = useStore((state) => state.statuses)
+  // Mientras se envía no se cambia qué filas se incluyen: la lista es la que se está enviando.
+  const sending = useSending()
   const onExcludedChange = setExcluded
   // Por defecto se muestra el primer correo como ejemplo.
   const [selected, setSelected] = useState(0)
@@ -263,7 +265,8 @@ export function ReviewView() {
   const lastClicked = useRef<number | null>(null)
   // Si ya no quedan problemas, el filtro vuelve solo a "All".
   const activeFilter: Filter = withProblems.length === 0 ? 'all' : filter
-  const visible = activeFilter === 'problems' ? withProblems : emails
+  // El mismo orden que usa el envío (ver reviewList y sendAll).
+  const visible = reviewList({ allEmails: emails, excluded }, activeFilter)
   const current = emails.find((email) => email.index === selected) ?? visible[0]
 
   function toggleRow(index: number, include: boolean, range: boolean) {
@@ -337,6 +340,7 @@ export function ReviewView() {
         </Group>
         <Checkbox
           label="Include this row"
+          disabled={sending}
           checked={!excluded.has(current.index)}
           onChange={(event) => toggleRow(current.index, event.currentTarget.checked, false)}
         />
@@ -419,6 +423,7 @@ export function ReviewView() {
                     <Checkbox
                       size="xs"
                       aria-label="Include all rows"
+                      disabled={sending}
                       checked={emails.length > 0 && allIncluded}
                       indeterminate={included.length > 0 && !allIncluded}
                       onChange={toggleAll}
@@ -440,6 +445,7 @@ export function ReviewView() {
                         <Checkbox
                           size="xs"
                           aria-label={`Include row ${email.index + 1}`}
+                          disabled={sending}
                           checked={!isExcluded}
                           onChange={(event) =>
                             toggleRow(

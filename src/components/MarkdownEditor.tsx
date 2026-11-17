@@ -133,12 +133,14 @@ interface Props {
   onFocus?: () => void
   /** Atajos de Vim, con barra de estado. */
   vim?: boolean
+  /** Sin cambios posibles (mientras se envía). */
+  readOnly?: boolean
   placeholder?: string
   'aria-label'?: string
 }
 
 export const MarkdownEditor = forwardRef<MarkdownEditorHandle, Props>(function MarkdownEditor(
-  { value, onChange, onFocus, vim = false, placeholder, 'aria-label': ariaLabel },
+  { value, onChange, onFocus, vim = false, readOnly = false, placeholder, 'aria-label': ariaLabel },
   ref,
 ) {
   const view = useRef<EditorView | null>(null)
@@ -157,6 +159,7 @@ export const MarkdownEditor = forwardRef<MarkdownEditorHandle, Props>(function M
     insert: (text) => {
       const current = view.current
       if (!current) return
+      if (readOnly) return
       current.dispatch(current.state.replaceSelection(text))
       current.focus()
     },
@@ -171,6 +174,8 @@ export const MarkdownEditor = forwardRef<MarkdownEditorHandle, Props>(function M
         view.current = created
       }}
       extensions={extensions}
+      editable={!readOnly}
+      readOnly={readOnly}
       placeholder={placeholder}
       aria-label={ariaLabel}
       // Tema propio (arriba); sin números de línea ni plegado: es un correo, no código.

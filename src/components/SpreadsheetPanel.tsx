@@ -7,7 +7,7 @@ import { useGoogle } from '../google/index.ts'
 import { toDataset } from '../merge/dataset.ts'
 import { sheetKey } from '../merge/sheetSettings.ts'
 import type { Spreadsheet, SpreadsheetSource } from '../sources.ts'
-import { setDataset, settingsFor, updateSheetSettings, useStore } from '../store.ts'
+import { isSending, setDataset, settingsFor, trackLoad, updateSheetSettings, useStore } from '../store.ts'
 import { NormalizedData } from './NormalizedData.tsx'
 import { Notice } from './Notice.tsx'
 import { PasteArea } from './PasteArea.tsx'
@@ -29,10 +29,12 @@ export function SpreadsheetPanel() {
   const [error, setError] = useState<string | null>(null)
 
   async function withLoading(task: () => Promise<void>) {
+    // Mientras se envía no se carga nada: cambiaría los correos que muestra Review.
+    if (isSending()) return
     setLoading(true)
     setError(null)
     try {
-      await task()
+      await trackLoad(task)
     } catch (e) {
       setError((e as Error).message)
     } finally {

@@ -3,7 +3,15 @@ import { useEffect, useMemo } from 'react'
 import { buildAttachment } from '../attachments/resolve.ts'
 import { AuthError, SendLimitError, UnconfirmedSendError, useGoogle } from '../google/index.ts'
 import { ADDRESS_FIELDS, type ProblemField, type RenderedEmail } from '../merge/render.ts'
-import { flushEmails, setSendState, setStatus, useStore, type SendMode, type SendStatus } from '../store.ts'
+import {
+  flushEmails,
+  isSending,
+  setSendState,
+  setStatus,
+  useStore,
+  type SendMode,
+  type SendStatus,
+} from '../store.ts'
 import { buildMessage, type MessageFields } from './mime.ts'
 
 export const plural = (n: number, one: string, many: string) => (n === 1 ? `1 ${one}` : `${n} ${many}`)
@@ -12,7 +20,7 @@ export const plural = (n: number, one: string, many: string) => (n === 1 ? `1 ${
 const MIN_INTERVAL = 400
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
-type SendMessage = (message: Uint8Array) => Promise<void>
+export type SendMessage = (message: Uint8Array) => Promise<void>
 
 let stopRequested = false
 
@@ -22,22 +30,34 @@ async function deliver(sendMessage: SendMessage, fields: MessageFields, email: R
   await sendMessage(message)
 }
 
+/** Detiene el envío en curso antes del siguiente correo. */
+export function stopSending() {
+  stopRequested = true
+}
+
 /** Pendiente: ni enviado ni sin confirmar (un no confirmado pudo haber salido; se reintenta aparte). */
 const isPending = (status: SendStatus | undefined) => status?.state !== 'sent' && status?.state !== 'unconfirmed'
 
 /**
- * Envía, de a uno, los correos incluidos pendientes, o con mode "unconfirmed" solo los no
- * confirmados. Sigue ante errores de un correo.
+ * Envía, de a uno y en el orden de Review, los correos incluidos pendientes, o con mode
+ * "unconfirmed" solo los no confirmados. Sigue ante errores de un correo.
+ *
+ * Mientras dura, el store no deja cambiar los correos ni cuáles se envían (ver isSending): la
+ * lista que se toma al empezar sigue siendo la que muestra Review.
  */
-async function sendAll(sendMessage: SendMessage, mode: SendMode) {
+export async function sendAll(sendMessage: SendMessage, mode: SendMode, { minInterval = MIN_INTERVAL } = {}) {
   // Si quedó texto sin procesar (se acaba de escribir), los correos se regeneran antes de enviar.
   flushEmails()
-  const { emails, statuses } = useStore.getState()
+  const state = useStore.getState()
+  // Una carga en curso cambiaría los correos a mitad del envío; la interfaz no deja llegar aquí.
+  if (isSending(state) || state.loads > 0) return
+  const { emails, statuses } = state
   const pending = emails.filter((email) =>
     mode === 'pending' ? isPending(statuses.get(email.index)) : statuses.get(email.index)?.state === 'unconfirmed',
   )
   if (pending.length === 0) return
   stopRequested = false
+  // En la misma tarea que la lista: desde aquí el store queda bloqueado.
   setSendState({ stopReason: null, progress: { done: 0, total: pending.length } })
 
   for (const [i, email] of pending.entries()) {
@@ -66,7 +86,7 @@ async function sendAll(sendMessage: SendMessage, mode: SendMode) {
       }
     }
     setSendState({ progress: { done: i + 1, total: pending.length } })
-    await sleep(Math.max(0, MIN_INTERVAL - (Date.now() - started)))
+    await sleep(Math.max(0, minInterval - (Date.now() - started)))
   }
   setSendState({ progress: null })
 }
@@ -124,6 +144,7 @@ export function useSendControls() {
   const testAddress = useStore((state) => state.testAddress)
   const testing = useStore((state) => state.testing)
   const confirming = useStore((state) => state.confirming)
+  const loading = useStore((state) => state.loads > 0)
 
   const summary = useMemo(() => {
     const sent = emails.filter((email) => statuses.get(email.index)?.state === 'sent')
@@ -170,10 +191,9 @@ export function useSendControls() {
       setSendState({ confirming: false })
       void sendAll(sendMessage, confirming)
     },
-    stop: () => {
-      stopRequested = true
-    },
-    canSend: google.signedIn && summary.blocking === 0,
+    stop: stopSending,
+    loading,
+    canSend: google.signedIn && summary.blocking === 0 && !loading,
     retryLabel: `Retry ${plural(summary.unconfirmed.length, 'unconfirmed email', 'unconfirmed emails')}`,
     sendLabel:
       summary.sent.length === 0

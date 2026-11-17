@@ -1,5 +1,6 @@
 import { useRef, useState, type DragEvent } from 'react'
 import type { LoadProgress } from '../sources.ts'
+import { isSending, trackLoad, useSending } from '../store.ts'
 
 export interface Loader {
   progress: LoadProgress | null
@@ -18,11 +19,13 @@ export function useLoader(): Loader {
   const [loadId, setLoadId] = useState(0)
 
   async function run(message: string, task: (onProgress: (progress: LoadProgress) => void) => Promise<void>) {
+    // Mientras se envía no se carga nada: cambiaría los correos que muestra Review.
+    if (isSending()) return
     setProgress({ message })
     setError(null)
     setLoadId((id) => id + 1)
     try {
-      await task(setProgress)
+      await trackLoad(() => task(setProgress))
     } catch (e) {
       setError((e as Error).message)
     } finally {
@@ -45,6 +48,8 @@ export interface Dropped {
  */
 export function useFileDrop(onDrop: (dropped: Dropped) => void, disabled = false) {
   const [active, setActive] = useState(false)
+  const sending = useSending()
+  disabled ||= sending
   // dragenter/dragleave se disparan también al pasar sobre los hijos.
   const depth = useRef(0)
   const hasFiles = (event: DragEvent) => !disabled && event.dataTransfer.types.includes('Files')

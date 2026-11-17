@@ -17,12 +17,12 @@ import { Link, RichTextEditor } from '@mantine/tiptap'
 import { useEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import { useLocalStorage } from '@mantine/hooks'
-import { useId, useRef, useState, type Ref } from 'react'
+import { useEffect, useId, useRef, useState, type Ref } from 'react'
 import { HelpPopover, HelpRows, HelpSection } from './HelpPopover.tsx'
 import { usePrimaryTouch } from '../media.ts'
 import { MarkdownEditor, type MarkdownEditorHandle } from './MarkdownEditor.tsx'
 import { FIELD_LABELS, type BodyFormat, type TemplateField } from '../merge/template.ts'
-import { updateTemplate, useStore } from '../store.ts'
+import { updateTemplate, useSending, useStore } from '../store.ts'
 
 type TextField = Exclude<TemplateField, 'body'>
 
@@ -81,9 +81,11 @@ function MarkdownBody({
   onFocus: () => void
 }) {
   const markdown = useStore((state) => state.template.markdown)
+  const sending = useSending()
   return (
     <MarkdownEditor
       ref={editorRef}
+      readOnly={sending}
       aria-label={FIELD_LABELS.body}
       placeholder={'Hi {{ name }},\n\nYour **balance** is {{ amount }}.'}
       value={markdown}
@@ -144,6 +146,12 @@ export function TemplateEditor() {
     onUpdate: ({ editor }) => updateTemplate({ body: editor.getHTML() }),
     onFocus: () => setTarget('body'),
   })
+
+  // Mientras se envía, el editor queda de solo lectura (los demás campos los bloquea el fieldset de App).
+  const sending = useSending()
+  useEffect(() => {
+    editor?.setEditable(!sending, false)
+  }, [editor, sending])
 
   function insertVariable(key: string) {
     const snippet = `{{ ${key} }}`

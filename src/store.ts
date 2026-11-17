@@ -54,6 +54,9 @@ interface State {
   /** Correos incluidos con algo que corregir. */
   problemCount: number
 
+  /** Cargas en curso (planilla o adjuntos): no se puede empezar a enviar hasta que terminen. */
+  loads: number
+
   // Envío.
   statuses: Map<number, SendStatus>
   progress: SendProgress | null
@@ -136,6 +139,7 @@ export const useStore = create<State>()(() => ({
   sources: [],
   normalized: null,
   ...withEmails({ template: initialTemplate, normalized: null, shared: [], sources: [], excluded: new Set() }),
+  loads: 0,
   statuses: new Map(),
   progress: null,
   stopReason: null,
@@ -146,6 +150,35 @@ export const useStore = create<State>()(() => ({
 
 const get = useStore.getState
 const set = useStore.setState
+
+/**
+ * Mientras se envía, todo lo que cambia los correos o cuáles se envían queda bloqueado: así lo
+ * que muestra Review es exactamente lo que sale, en el mismo orden. La interfaz también se
+ * bloquea; esta guarda es la garantía aunque algo se escape (un atajo, una carga que termina).
+ */
+export const isSending = (state: Pick<State, 'progress'> = get()) => state.progress !== null
+
+/** Para la interfaz: true mientras se envía (la edición queda bloqueada). */
+export const useSending = () => useStore(isSending)
+
+/** Orden de Review: todas las filas en el orden de la planilla, o solo las incluidas con problemas. */
+export function reviewList(
+  state: Pick<State, 'allEmails' | 'excluded'>,
+  filter: 'all' | 'problems' = 'all',
+): RenderedEmail[] {
+  if (filter === 'all') return state.allEmails
+  return state.allEmails.filter((email) => !state.excluded.has(email.index) && email.problems.length > 0)
+}
+
+/** Cuenta una carga en curso mientras dura `task`. */
+export async function trackLoad<T>(task: () => Promise<T>): Promise<T> {
+  set((state) => ({ loads: state.loads + 1 }))
+  try {
+    return await task()
+  } finally {
+    set((state) => ({ loads: state.loads - 1 }))
+  }
+}
 
 /** Los correos se regeneran al dejar de escribir, no en cada tecla. */
 const EMAILS_DELAY = 150
@@ -168,6 +201,7 @@ function recomputeEmailsSoon() {
 }
 
 export function updateTemplate(patch: Partial<EmailTemplate>) {
+  if (isSending()) return
   set((state) => ({ template: { ...state.template, ...patch } }))
   save(TEMPLATE_KEY, get().template)
   recomputeEmailsSoon()
@@ -175,6 +209,7 @@ export function updateTemplate(patch: Partial<EmailTemplate>) {
 
 /** Planilla nueva: las filas excluidas y el estado de envío dejan de corresponder a las mismas filas. */
 export function setDataset(dataset: Dataset | null) {
+  if (isSending()) return
   set((state) => {
     const next = { ...state, dataset, excluded: new Set<number>() }
     const normalized = withNormalized(next)
@@ -191,6 +226,7 @@ export function setDataset(dataset: Dataset | null) {
 }
 
 export function updateSheetSettings(key: string, patch: Partial<SheetSettings>) {
+  if (isSending()) return
   set((state) => {
     const sheetSettings = { ...state.sheetSettings, [key]: { ...settingsFor(state, key), ...patch } }
     // Solo la hoja cargada afecta los datos normalizados y los correos.
@@ -207,6 +243,7 @@ export function setNormalization(normalization: Normalization) {
 }
 
 export function setExcluded(excluded: Set<number>) {
+  if (isSending()) return
   set((state) => ({ excluded, ...withIncluded({ allEmails: state.allEmails, excluded }) }))
 }
 
@@ -215,6 +252,7 @@ export function setExcluded(excluded: Set<number>) {
  * escribir; al agregar, quitar o reordenar, de inmediato.
  */
 function setAttachments(patch: Partial<Pick<State, 'shared' | 'sources'>>, typing: boolean) {
+  if (isSending()) return
   if (typing) {
     set(patch)
     recomputeEmailsSoon()

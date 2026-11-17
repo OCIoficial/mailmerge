@@ -91,6 +91,15 @@ function BlockingNote({ blocking }: { blocking: number }) {
   )
 }
 
+/** Una carga en curso cambiaría los correos a mitad del envío. */
+function LoadingNote() {
+  return (
+    <Text size="sm" c="dimmed">
+      Wait for the files to finish loading to send.
+    </Text>
+  )
+}
+
 export function SendPanel() {
   const controls = useSendControls()
   // Teléfono: los botones y el progreso van en la barra fija; aquí queda solo la dirección de prueba.
@@ -166,6 +175,7 @@ export function SendPanel() {
         )}
 
         {blocking > 0 && <BlockingNote blocking={blocking} />}
+        {controls.loading && <LoadingNote />}
       </Stack>
     </Card>
   )
@@ -226,6 +236,8 @@ export function SendBar() {
     )
   } else if (blocking > 0) {
     status = <BlockingNote blocking={blocking} />
+  } else if (controls.loading) {
+    status = <LoadingNote />
   }
 
   return (

@@ -3,6 +3,7 @@ import { IconClipboard } from '@tabler/icons-react'
 import { useId, useState } from 'react'
 import { readPastedTable } from '../clipboard.ts'
 import { usePrimaryTouch } from '../media.ts'
+import { useSending } from '../store.ts'
 import classes from './PasteArea.module.css'
 
 interface Props {
@@ -22,6 +23,8 @@ const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigat
 export function PasteArea({ onPaste, onError, compact }: Props) {
   const [focused, setFocused] = useState(false)
   const touch = usePrimaryTouch()
+  // Mientras se envía no se reemplazan los datos.
+  const sending = useSending()
   const hintId = useId()
   const shortcut = isMac ? '⌘V' : 'Ctrl+V'
 
@@ -48,7 +51,8 @@ export function PasteArea({ onPaste, onError, compact }: Props) {
       {/* Capa editable transparente sobre toda la zona: recibe el foco, el pegado y el menú del teléfono. */}
       <div
         className={classes.target}
-        contentEditable
+        contentEditable={!sending}
+        aria-disabled={sending || undefined}
         suppressContentEditableWarning
         // Sin teclado en pantalla: en el teléfono solo se necesita el menú Pegar.
         inputMode="none"
@@ -62,6 +66,7 @@ export function PasteArea({ onPaste, onError, compact }: Props) {
         onDrop={(event) => event.preventDefault()}
         onPaste={(event) => {
           event.preventDefault()
+          if (sending) return
           try {
             onPaste(readPastedTable(event.clipboardData))
           } catch (e) {

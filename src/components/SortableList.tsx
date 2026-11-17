@@ -18,6 +18,7 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { useReducedMotion } from '@mantine/hooks'
 import type { ReactNode } from 'react'
+import { useSending } from '../store.ts'
 import classes from './SortableList.module.css'
 
 function GripIcon() {
@@ -77,6 +78,8 @@ interface Props<T> {
 /** Lista vertical que se reordena arrastrando la manija de cada elemento (o con teclado). */
 export function SortableList<T>({ items, getId, getLabel, onReorder, children, gap = 8 }: Props<T>) {
   const animate = !useReducedMotion()
+  // Reordenar cambia los adjuntos de los correos: no mientras se envía.
+  const sending = useSending()
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -95,7 +98,7 @@ export function SortableList<T>({ items, getId, getLabel, onReorder, children, g
       modifiers={[restrictToVerticalAxis, restrictToParentElement]}
       onDragEnd={handleDragEnd}
     >
-      <SortableContext items={ids} strategy={verticalListSortingStrategy}>
+      <SortableContext items={ids} strategy={verticalListSortingStrategy} disabled={sending}>
         <div className={classes.list} style={{ gap }}>
           {items.map((item, index) => (
             <SortableItem key={ids[index]} id={ids[index]} label={getLabel(item)} animate={animate}>
